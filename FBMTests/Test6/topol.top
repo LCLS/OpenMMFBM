@@ -1,0 +1,12 @@
+;
+;	File 'topol.top' was generated
+;	By user: tcickovs (186566)
+;	On host: gpu2.crc.nd.edu
+;	At date: Tue Aug 21 15:54:11 2012
+;
+;	This is your topology file
+;	title
+;
+; Include forcefield parameters
+#include "ffamber03.itp"
+
