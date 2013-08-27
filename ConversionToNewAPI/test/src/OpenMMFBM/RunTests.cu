@@ -201,6 +201,91 @@ bool testOddEvenEigSort() {
 #define NUM_DOF 300
 #define NUM_BLOCKS 100
 
+
+bool testBlockCopyFrom() {
+// Pick 5 random sizes, these will be matrices with eigenvalues on the diagonal.
+   // The special 'eigenvalue' will be -1.
+   // All other positive values will be equal to the matrix size.
+   int size[5];
+   size[0] = rand() % 10 + 1;
+   size[1] = rand() % 10 + 1;
+   size[2] = rand() % 10 + 1;
+   size[3] = rand() % 10 + 1;
+   size[4] = rand() % 10 + 1;
+
+   int numatoms = 0;
+   int biggestblock = 0;
+   for (int i = 0; i < 5; i++) {
+      numatoms += size[i];
+      if (size[i] > biggestblock)
+         biggestblock = size[i];
+   }
+   
+
+
+   // Perturb the test
+   int* blocnums = (int*) malloc(5*sizeof(int));
+   // Populate hessian
+   blocnums[0] = 0;
+   for (int i = 0; i < 5; i++) {
+      if (i > 0) {
+         blocnums[i] = blocnums[i-1]+size[i-1];
+      }
+   }
+
+   float *testpos = (float*)malloc(3*numatoms*sizeof(float));
+   float4 *pos = (float4*)malloc(numatoms*sizeof(float4));
+   for (int i = 0; i < numatoms; i++) {
+	testpos[3*i] = pos[i].x = rand() % 10 + (float) rand() / RAND_MAX + 1;
+	testpos[3*i+1] = pos[i].y = rand() % 10 + (float) rand() / RAND_MAX + 1;
+	testpos[3*i+2] = pos[i].z = rand() % 10 + (float) rand() / RAND_MAX + 1;
+   }
+   
+   float* gpu_posorig;
+   cudaMalloc(&gpu_posorig, 3*numatoms*sizeof(float));
+   cudaMemcpy(gpu_posorig, testpos, 3*numatoms*sizeof(float), cudaMemcpyHostToDevice);
+
+   float delt = (float) rand() / RAND_MAX + 1;
+   for (int j = 0; j < 5; j++) {
+      int startspot = 3*blocnums[j];
+      testpos[startspot+0] += delt;
+   }
+   float4* gpu_pos;
+   cudaMalloc(&gpu_pos, numatoms*sizeof(float4));
+   cudaMemcpy(gpu_pos, pos, numatoms*sizeof(float4), cudaMemcpyHostToDevice);
+   int* gpu_blocnums;
+   cudaMalloc(&gpu_blocnums, 5*sizeof(int));
+   cudaMemcpy(gpu_blocnums, blocnums, 5*sizeof(int), cudaMemcpyHostToDevice);
+   blockCopyFromOpenMM<<<1, 5>>>(gpu_posorig, gpu_pos, gpu_blocnums, 5, 0, numatoms);
+   float4* check3 = (float4*)malloc(numatoms*sizeof(float4));
+   cudaMemcpy(check3, gpu_pos, numatoms*sizeof(float4), cudaMemcpyDeviceToHost);
+   float* check4 = (float*)malloc(3*numatoms*sizeof(float));
+   cudaMemcpy(check4, gpu_posorig, 3*numatoms*sizeof(float), cudaMemcpyDeviceToHost);
+   bool res = true;
+   for (int i = 0; i < numatoms; i++){
+      if (testpos[3*i] != check3[i].x) {printf("3 Error on x-coordinate of atom  %i expected %f got %f\n", i, testpos[3*i], check3[i].x);res=false;}
+      if (testpos[3*i+1] != check3[i].y) {printf("3 Error on x-coordinate of atom  %i expected %f got %f\n", i, testpos[3*i+1], check3[i].y);res=false;}
+      if (testpos[3*i+2] != check3[i].z) {printf("3 Error on x-coordinate of atom  %i expected %f got %f\n", i, testpos[3*i+2], check3[i].z);res=false;}
+      if (pos[i].x != check4[3*i]) {printf("4 Error on x-coordinate of atom  %i expected %f got %f\n", i, pos[i].x, check4[3*i]);res=false;}
+      if (pos[i].y != check4[3*i+1]) {printf("4 Error on x-coordinate of atom  %i expected %f got %f\n", i, pos[i].y, check4[3*i+1]); res=false;}
+      if (pos[i].z != check4[3*i+2]) {printf("4 Error on x-coordinate of atom  %i expected %f got %f\n", i, pos[i].z, check4[3*i+2]);res=false;}
+   }
+
+   cudaFree(gpu_posorig);
+   cudaFree(gpu_pos);
+   cudaFree(gpu_blocnums);
+   free(blocnums);
+   free(testpos);
+   free(pos);
+   free(check3);
+   free(check4);
+   return res;
+
+
+}
+
+
+
 bool testCopyFrom() {
     const int numBlocks = NUM_DOF;
     const int numThreads = 1;
@@ -1355,11 +1440,11 @@ int main()
    if (result) printf("Test ComputeNormsandCenter Passed\n");
    else printf("Test ComputeNormsAndCenter Failed\n");
 
-/*   printf("Testing Make HE....\n");
+   printf("Testing Make HE....\n");
    result = testMakeHE();
    if (result) printf("Test MakeHE Passed\n");
    else printf("Test MakeHE Failed\n");
-*/
+
 }
 
 
