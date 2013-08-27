@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-
+namespace OpenMMFBM {
     namespace Preference {
         enum EPlatform { Reference, OpenCL, CUDA };
     }
@@ -27,5 +27,6 @@
         
         FBMParameters();
     };
+    }
     
 #endif // FBM_PARAMETERS_H_
