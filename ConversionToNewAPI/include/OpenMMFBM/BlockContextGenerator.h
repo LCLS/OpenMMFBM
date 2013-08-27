@@ -10,7 +10,7 @@
 class BlockContextGenerator {
 
  public:
- BlockContextGenerator(FBMParameters &p) : params(p) {
+ BlockContextGenerator(OpenMMFBM::FBMParameters &p) : params(p) {
 
   }
 
@@ -34,10 +34,10 @@ class BlockContextGenerator {
 
   bool inSameBlock(const std::vector<int> &blockSizes, const int p1, const int p2, const int p3, const int p4) const;
 
-  FBMParameters &params;
+  OpenMMFBM::FBMParameters &params;
 
 };
 
-#endif BLOCKCONTEXTGENERATOR_H
+#endif //BLOCKCONTEXTGENERATOR_H
 
   
