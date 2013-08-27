@@ -257,7 +257,7 @@ __global__ void oddEvenEigSort(float* eigenvalues, float* eigenvectors, int N, i
 
 
 /* Sorting within the blocks */
-__global__ void blockEigSort(float* eigenvalues, float** eigenvectors, int* blocknums, int* blocksizes) {
+__global__ void blockEigSort(float* eigenvalues, float* eigenvectors, int* blocknums, int* blocksizes, int N) {
    int blockNumber = blockIdx.x * blockDim.x + threadIdx.x;
    int startspot = blocknums[blockNumber];
    int endspot = startspot+blocksizes[blockNumber]-1;
@@ -273,9 +273,14 @@ __global__ void blockEigSort(float* eigenvalues, float** eigenvectors, int* bloc
                eigenvalues[j+1] = tmp;
 
                // Swapping addresses
-               float* tmpaddr = eigenvectors[j];
+      		for (int i = 0; i < N; i++) {
+         		tmp = eigenvectors[i*N+j];
+			eigenvectors[i*N+j] = eigenvectors[i*N+j+1];
+	 		eigenvectors[i*N+j+1] = tmp;
+      		}
+               /*float* tmpaddr = eigenvectors[j];
                eigenvectors[j] = eigenvectors[j+1];;
-               eigenvectors[j+1] = tmpaddr;
+               eigenvectors[j+1] = tmpaddr;*/
 	    }
 	 }
    }
@@ -387,7 +392,7 @@ __global__ void orthogonalize23(float* Qi_gdof, int* blocksizes, int numblocks, 
 
 
 //__global__ void orthogonalize(float** eigvec, float*** Qi_gdof, int cdof, int* blocksizes, int* blocknums) {
-__global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* blocksizes, int* blocknums) {
+__global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* blocksizes, int* blocknums, int largestblock) {
    int blockNum = blockIdx.x * blockDim.x + threadIdx.x;
 
         // orthogonalize original eigenvectors against gdof
@@ -411,7 +416,8 @@ __global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* bloc
 
             // copy original vector to Qi_gdof -- updated in place
             for( int l = 0; l < size; l++ ) {
-	        Qi_gdof[blockNum][l][curr_evec] = eigvec[blocknums[blockNum]+l][j];
+	        //Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] = eigvec[blocknums[blockNum]+l][j];
+	        Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] = eigvec[(blocknums[blockNum]+l)*largestblock+j];
             }
 
             // get dot products with previous vectors
@@ -420,19 +426,20 @@ __global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* bloc
                 // orthogonalized vectors
                 double dot_prod = 0.0;
                 for( int l = 0; l < size; l++ ) {
-                    dot_prod += Qi_gdof[blockNum][l][k] * eigvec[blocknums[blockNum]+l][j];
+                    //dot_prod += Qi_gdof[blockNum*6*largestblock+l*6+k] * eigvec[blocknums[blockNum]+l][j];
+                    dot_prod += Qi_gdof[blockNum*6*largestblock+l*6+k] * eigvec[(blocknums[blockNum]+l)*largestblock+j];
                 }
 
                 // subtract from current vector -- update in place
                 for( int l = 0; l < size; l++ ) {
-                    Qi_gdof[blockNum][l][curr_evec] = Qi_gdof[blockNum][l][curr_evec] - Qi_gdof[blockNum][l][k] * dot_prod;
+                    Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] = Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] - Qi_gdof[blockNum*6*largestblock+l*6+k] * dot_prod;
                 }
             }
 
             //normalize residual vector
             double norm = 0.0;
             for( int l = 0; l < size; l++ ) {
-                norm += Qi_gdof[blockNum][l][curr_evec] * Qi_gdof[blockNum][l][curr_evec];
+                norm += Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] * Qi_gdof[blockNum*6*largestblock+l*6+curr_evec];
             }
 
             // if norm less than 1/20th of original
@@ -446,7 +453,7 @@ __global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* bloc
             // scale vector
             norm = sqrt( norm );
             for( int l = 0; l < size; l++ ) {
-                Qi_gdof[blockNum][l][curr_evec] = Qi_gdof[blockNum][l][curr_evec] / norm;
+                Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] = Qi_gdof[blockNum*6*largestblock+l*6+curr_evec] / norm;
             }
 
             curr_evec++;
@@ -461,7 +468,8 @@ __global__ void orthogonalize(float* eigvec, float* Qi_gdof, int cdof, int* bloc
 
             // orthogonalized eigenvectors already sorted by eigenvalue
             for( int k = 0; k < size; k++ ) {
-                eigvec[startatom + k][startatom + j] = Qi_gdof[blockNum][k][j];
+                //eigvec[startatom + k][startatom + j] = Qi_gdof[blockNum*6*largestblock+k*6+j];
+                eigvec[(startatom + k)*largestblock+(startatom + j)] = Qi_gdof[blockNum*6*largestblock+k*6+j];
             }
         }
 }
