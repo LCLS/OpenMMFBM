@@ -10,7 +10,8 @@
 
 
 #include <vector>
-
+#include <iostream>
+using namespace std;
 #include "jama_eig.h"
 
 #include "OpenMM.h"
@@ -21,10 +22,10 @@
 
 typedef TNT::Array1D<double> EigenvalueArray;
 typedef std::pair<double,int> EigenvalueColumn;
-
+namespace OpenMMFBM{
 class FBMReference : public FBMAbstract {
    public:
- FBMReference(OpenMM::Context &c, OpenMM::Context &bC, FBMParameters &p) : FBMAbstract(c, bC, p) { }
+ FBMReference(OpenMM::Context &c, OpenMM::Context &bC, OpenMMFBM::FBMParameters &p) : FBMAbstract(c, bC, p) { }
 
   virtual void getBlockHessian(std::vector<std::vector<double > >& blockHessianVectors) const {
     const unsigned int N = 3 * particleCount;
@@ -40,7 +41,8 @@ class FBMReference : public FBMAbstract {
   virtual void getBlockEigenvectors(std::vector<std::vector<double > >& blockVectors) const {
     const unsigned int N = 3 * particleCount;
     blockVectors.resize(N, std::vector<double>(N, 0.0));
- 
+    cout << "BLOCKVECTOR SIZE: " << N << "x" << N << endl;
+    cout << "BLOCKEIGENVECTOR SIZE: " << blockEigenvectors.dim1() << "x" << blockEigenvectors.dim2() << endl;
     for(unsigned int i = 0; i < N; i++) {
       for(unsigned int j = 0; j < N; j++) {
 	blockVectors[i][j] = blockEigenvectors[i][j];
@@ -183,5 +185,5 @@ class FBMReference : public FBMAbstract {
       
 
 };
-
+}
 #endif
