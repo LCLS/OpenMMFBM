@@ -5,9 +5,9 @@
 #include "OpenMM.h"
 
 
-//#ifdef OPENMMFBM_CUDA
+#ifdef OPENMMFBM_CUDA
 #include "OpenMMFBM/FBMCuda.h"
-//#endif
+#endif
 
 #include "OpenMMFBM/FBMReference.h"
 #include "OpenMMFBM/FBMAbstract.h"
@@ -16,7 +16,7 @@
 
 using namespace std;
 
-FBM::FBM(FBMParameters &params) : myParameters(params) {
+FBM::FBM(OpenMMFBM::FBMParameters &params) : myParameters(params) {
 
 }
 
@@ -36,14 +36,14 @@ FBMAbstract* FBM::implementationFactory(OpenMM::Context &context, OpenMM::Contex
 
   FBMAbstract* fbmImplementation = NULL;
 
-  //#ifdef OPENMMFMB_CUDA
+  #ifdef OPENMMFMB_CUDA
   if(fbmPlatform == "Cuda") {
     fbmImplementation = new FBMCuda(context, blockContext, myParameters);
   }
-  //#endif
+  #endif
 
   if(fbmImplementation == NULL) {
-    fbmImplementation = new FBMReference(context, blockContext, myParameters);
+    fbmImplementation = new OpenMMFBM::FBMReference(context, blockContext, myParameters);
   }
 
   cout << "Have implementation!" << endl;

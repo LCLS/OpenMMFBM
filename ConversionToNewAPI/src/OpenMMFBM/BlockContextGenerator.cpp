@@ -266,13 +266,14 @@ Context* BlockContextGenerator::generateBlockContext(Context &context) {
   Context *blockContext;
   
   switch( params.blockPlatform ) {
-  case Preference::Reference:
+
+  case OpenMMFBM::Preference::Reference:
     blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "Reference" ) );
     break;
-  case Preference::OpenCL:
+  case OpenMMFBM::Preference::OpenCL:
     blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "OpenCL" ) );
     break;
-  case Preference::CUDA:
+  case OpenMMFBM::Preference::CUDA:
     blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "Cuda" ) );
     break;
   }
