@@ -2,12 +2,13 @@
 #include "kernels/Kernels.cu"
 #include "kernels/qr.cu"
 //#include <cuda.h>
-
+#include "OpenMMFBM/CudaFBMKernelSources.h"
 #include "cula_lapack_device.h"
 #include "cula.h"
-
+#include "CudaArray.h"
+#include "CudaContext.h"
 #include "openmm/internal/ContextImpl.h"
-#include "gputypes.h"
+//#include "gputypes.h"
 #include "OpenMM.h"
 using namespace OpenMM;
 
@@ -96,7 +97,7 @@ void FBMCuda::getCoarseGrainedHessian(std::vector<std::vector<double > >& coarse
 }
 
 
-FBMCuda::FBMCuda(Context &c, Context &bC, FBMParameters &p) : FBMAbstract(c, bC, p) { 
+FBMCuda::FBMCuda(Context &c, Context &bC, OpenMMFBM::FBMParameters &p) : FBMAbstract(c, bC, p) { 
    // These will give us access to GPU pointers
    data = reinterpret_cast<CudaPlatform::PlatformData*>(getContextImpl(c).getPlatformData());
    blockData = reinterpret_cast<CudaPlatform::PlatformData*>(getContextImpl(bC).getPlatformData());
@@ -176,9 +177,11 @@ void FBMCuda::formBlocks() {
    cudaMalloc( (void**) &blockHessian, numelements*sizeof(float));
 
    // Temporary buffers to hold positions and forces
-   float* pos1;
-   float* force1;
-   cudaMalloc( (void**) &pos1, _3N*sizeof(float));
+   CudaArray* pos1 = new CudaArray(*(blockData->contexts[0]), _N, sizeof(float4), "PerturbedP"); 
+   //float* pos1;
+   CudaArray* force1 = new CudaArray(*(blockData->contexts[0]), _N, sizeof(float4), "PerturbedF");
+ //float* force1;
+   //cudaMalloc( (void**) &pos1, _3N*sizeof(float));
    cudaMalloc( (void**) &force1, _3N*sizeof(float));
 
    // GPU Thread organization...
@@ -223,7 +226,7 @@ void FBMCuda::formBlocks() {
 
    cout << try4[0][0] << " " << try4[0][1] << endl;
    
-   if(blockData->gpu)
+   /*if(blockData->gpu)
    cout << "GPU data not NULL!";
    else
    cout << "GPU data is NULL!";
@@ -235,38 +238,96 @@ void FBMCuda::formBlocks() {
 
    blockData->gpu->psPosq4->Upload();
 
-   float4* positions = blockData->gpu->psPosq4->_pDevData;   
+   float4* positions = blockData->gpu->psPosq4->_pDevData;  */ 
 
    // Populate the Hessian
    numelements = 0;
+   CudaContext* cu = blockData->contexts[0];
+   CUmodule perturbModule = cu->createModule(CudaFBMKernelSources::perturb);
+CUfunction perturbKernel = cu->getKernel(perturbModule, "perturbPositions");
+CUmodule copyModule = cu->createModule(CudaFBMKernelSources::copy);
+CUfunction copyFromKernel = cu->getKernel(copyModule, "copyFromOpenMM");
+CUfunction blockCopyFromKernel = cu->getKernel(copyModule, "blockCopyFromOpenMM");
+CUfunction copyToKernel = cu->getKernel(copyModule, "copyToOpenMM");
+CUfunction blockCopyToKernel = cu->getKernel(copyModule, "blockCopyToOpenMM");
+CUmodule blockHessModule = cu->createModule(CudaFBMKernelSources::blockHess);
+CUfunction blockHessKernel = cu->getKernel(blockHessModule, "makeBlockHessian");
+CUmodule symmetrizeModule = cu->createModule(CudaFBMKernelSources::symmetrize);
+CUfunction symmetrize1DKernel = cu->getKernel(symmetrizeModule, "symmetrize1D");
+
    for( unsigned int i = 0; i < largestBlockSize; i++ ) {
    cout << "current dof " << i << endl;      
       // Perturb in the (+) direction
       // After this, pos1 will hold the old positions and the positions pointer
       // has been directly perturbed
-      perturbPositions<<<numBlocks, numThreads>>>(pos1, positions, params.blockDelta, blocknums, blocks.size(), i, _N);     
+	int numblocks = blocks.size();
+      void* perturbArgs[] = {&pos1->getDevicePointer(), 
+      				&blockData->contexts[0]->getPosq().getDevicePointer(), 
+				&params.blockDelta,
+				&blocknums,
+				&numblocks,
+				&i,
+				&_N};
+      cu->executeKernel(perturbKernel, perturbArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+      //perturbPositions<<<numBlocks, numThreads>>>(pos1, (void*) &blockData->contexts[0]->getPosq().getDevicePointer(), params.blockDelta, blocknums, blocks.size(), i, _N);     
+ 
       cout << " Calling forces" << endl;
       // Compute forces
       blockContext.getState( State::Forces ).getForces();
-      
+ 
+
       // Save first force vector
+      void* copyFromArgs[] = {&force1->getDevicePointer(),
+      				&data->contexts[0]->getForce().getDevicePointer(),
+				&_3N};
+      void* blockCopyFromArgs[] = {&force1->getDevicePointer(),
+      					&blockData->contexts[0]->getForce().getDevicePointer(),
+					&blocknums,
+					&numblocks,
+					&i,
+					&_N};
+      cu->executeKernel(copyFromKernel, copyFromArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+      cu->executeKernel(blockCopyFromKernel, blockCopyFromArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
       //copyFromOpenMM<<<numBlocks, numThreads>>>(force1, &((*(data->gpu->psForce4))[0].w), _3N);
       //blockcopyFromOpenMM<<<numBlocks, numThreads>>>(force1, &((*(blockData->gpu->psPosq4))[0].w), blocknums, blocks.size(), i, _N);
       
       // Copy back positions
+      void* blockCopyToArgs[] = {&blockData->contexts[0]->getPosq().getDevicePointer(),
+					&pos1->getDevicePointer(),
+					&blocknums,
+					&numblocks,
+					&i,
+					&_N};
+      cu->executeKernel(blockCopyToKernel, blockCopyToArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
       //blockcopyToOpenMM<<<numBlocks, numThreads>>>(&((*(blockData->gpu->psPosq4))[0].w), pos1, blocknums, blocks.size(), i, _N);
 
       // Perturb in the the (-) direction 
+      int negDelta = -params.blockDelta;
+      perturbArgs[2] = &negDelta;
+      cu->executeKernel(perturbKernel, perturbArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
       //perturbPositions<<<numBlocks, numThreads>>>(pos1, &((*(blockData->gpu->psPosq4))[0].w), -(params.blockDelta), blocknums, blocks.size(), i, _N);     
 
       // Compute forces
-      //blockContext.getState( State::Forces ).getForces();
+      blockContext.getState( State::Forces ).getForces();
 
       // Allocate GPU memory for the Hessian
       // TMC THIS HAS A BUG
       // You have to determine that last parameter (starting spot) inside the function by passing block sizes.
       // It is not determined by degree of freedom
       // So I believe the second call is right, not the first
+
+      void* blockHessArgs[] = {&blockHessian,
+      				   &force1->getDevicePointer(),
+				   &blockData->contexts[0]->getForce().getDevicePointer(),
+				   &masses,
+				   &params.blockDelta,
+				   &blocknums,
+				   &blocksizes,
+				   &numblocks,
+				   &i,
+				   &_N};
+       
+      cu->executeKernel(blockHessKernel, blockHessArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
       //makeBlockHessian<<<numBlocks, numThreads>>>(blockHessian, force1, &((*(blockData->gpu->psForce4))[0].w), masses, params.blockDelta, blocknums, blocks.size(), i, _N, numelements); 
       //makeBlockHessian<<<numBlocks, numThreads>>>(blockHessian, force1, &((*(blockData->gpu->psForce4))[0].w), masses, params.blockDelta, blocknums, blocksizes, blocks.size(), i, _N); 
  
@@ -277,12 +338,15 @@ void FBMCuda::formBlocks() {
 
    // Symmetrize the Hessian
    makeBlocksAndThreads(_3N*_3N);
-   symmetrize1D<<<numBlocks, numThreads>>>(blockHessian, _3N);
+   void* symmArgs[] = {&blockHessian, &blockData->contexts[0]->getPosq().getDevicePointer(), &blocksize, &_3N};
+   cu->executeKernel(symmetrize1DKernel, symmArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);	             	
+   //symmetrize1D<<<numBlocks, numThreads>>>(blockHessian, positions, blocksize, _3N);
 }
 
 
 void FBMCuda::diagonalizeBlocks() {
-   // The QR code expects the blocks to be placed in a linear array
+CudaContext* cu = blockData->contexts[0];
+// The QR code expects the blocks to be placed in a linear array
    // Note: It also assumes that the number of matricies to diagonalize will be 
    // smaller than MAXBLOCKSPERTHREAD
    // I think this will mostly be the case anyway...
@@ -290,46 +354,114 @@ void FBMCuda::diagonalizeBlocks() {
    cudaMalloc( (void**) &blockEigenvalues, _3N*sizeof(float) );
    cudaMalloc( (void**) &tmp, _3N*_3N*sizeof(float) );
    cudaMalloc( (void**) &blockEigenvectors, _3N*sizeof(float));
-   block_QR<<<1, numHessBlocks>>>(numHessBlocks, blockHessian, hessiannums, hessiansizes, tmp, hessiannums, 1, 1e-8);
+
+   int one = 1;
+   float eps = 1e-8;
+CUmodule qrModule = cu->createModule(CudaFBMKernelSources::qr);
+CUfunction blockQRKernel = cu->getKernel(qrModule, "block_QR");
+CUmodule eigenModule = cu->createModule(CudaFBMKernelSources::eigen);
+CUfunction eigenKernel = cu->getKernel(eigenModule, "makeEigenvalues");
+CUmodule sortModule = cu->createModule(CudaFBMKernelSources::sort);
+CUfunction sortKernel = cu->getKernel(sortModule, "blockEigSort");
+CUmodule dofModule = cu->createModule(CudaFBMKernelSources::dof);
+CUfunction normKernel = cu->getKernel(dofModule, "computeNormsAndCenter");
+CUfunction dofKernel = cu->getKernel(dofModule, "geometricDOF");
+CUmodule orthoModule = cu->createModule(CudaFBMKernelSources::orthogonalize);
+CUfunction orthoKernel = cu->getKernel(orthoModule, "orthogonalize");
+CUfunction ortho23Kernel = cu->getKernel(orthoModule, "orthogonalize23");
+
+
+  void* qrArgs[] = {&numHessBlocks,
+   			&blockHessian,
+			&hessiannums,
+			&hessiansizes,
+			&tmp,
+			&hessiannums,
+			&one,
+			&eps};
+   cu->executeKernel(blockQRKernel, qrArgs, 1, numHessBlocks);
+   //block_QR<<<1, numHessBlocks>>>(numHessBlocks, blockHessian, hessiannums, hessiansizes, tmp, hessiannums, 1, 1e-8);
 
    // Transfer elements from the diagonal of the block Hessian to the block Eigenvalues
    // blockEigenvectors should be good
    makeBlocksAndThreads(_3N);
-   makeEigenvalues<<<numBlocks,numThreads>>>(blockEigenvalues, blockEigenvectors, blockHessian, tmp, hessiannums, blocknums, blocksizes, _3N);
+   int _N = _3N / 3;
+   void* eigenArgs[] = {&blockEigenvalues,
+   			&blockHessian,
+			&blocknums,
+			&blocksizes,
+			&hessiannums,
+			&_N,
+			&numHessBlocks};
+   cu->executeKernel(eigenKernel, eigenArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+   //makeEigenvalues<<<numBlocks,numThreads>>>(blockEigenvalues, blockHessian, blocknums, blocksizes, hessiannums, _3N/3, numHessBlocks);
    
    // Sort eigenvectors within each block
    makeBlocksAndThreads(numHessBlocks);
-   blockEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors, blocknums, hessiansizes);
+   void* sortArgs[] = {&blockEigenvalues, &blockEigenvectors, &blocknums, &hessiansizes, &_N};
+   cu->executeKernel(sortKernel, sortArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+   //blockEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors, blocknums, hessiansizes, _3N/3);
 
+   // LEFT OFF HERE
    // Compute geometric degrees of freedom
    float* norms;
-   float** poscenter;
+   float* poscenter;
    cudaMalloc( (void**) &norms, numHessBlocks*sizeof(float) );
    cudaMalloc( (void**) &poscenter, numHessBlocks*3*sizeof(float) );
    
-   computeNormsAndCenter<<<numBlocks, numThreads>>>(norms, poscenter, masses, &((*(blockData->gpu->psPosq4))[0].w), blocknums, blocksizes);
+   void* normsArgs[] = {&norms,
+   			&poscenter,
+                     	&masses,
+			&blockData->contexts[0]->getPosq().getDevicePointer(),
+			&blocknums,
+			&blocksizes};
+   cu->executeKernel(normKernel, normsArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+   //computeNormsAndCenter<<<numBlocks, numThreads>>>(norms, poscenter, masses, &((*(blockData->gpu->psPosq4))[0].w), blocknums, blocksizes);
    
-   float*** Qi_gdof;
+   float* Qi_gdof;
    cudaMalloc( (void**) &Qi_gdof, numHessBlocks*largestBlockSize*largestBlockSize);
-   geometricDOF<<<numBlocks, numThreads>>>(Qi_gdof, &((*(blockData->gpu->psPosq4))[0].w), masses, blocknums, blocksizes, norms, poscenter); 
-  
-   orthogonalize23<<<numHessBlocks, CONSERVEDDEGREESOFFREEDOM-4>>>(Qi_gdof, blocksizes);
-   orthogonalize<<<numBlocks, numThreads>>>(blockEigenvectors, Qi_gdof, CONSERVEDDEGREESOFFREEDOM, blocksizes, blocknums);
+
+   void* dofArgs[] = {&Qi_gdof,
+   			&blockData->contexts[0]->getPosq().getDevicePointer(),
+			&masses, &blocknums, &blocksizes, &norms, &poscenter};
+   cu->executeKernel(dofKernel, dofArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+
+   //geometricDOF<<<numBlocks, numThreads>>>(Qi_gdof, &((*(blockData->gpu->psPosq4))[0].w), masses, blocknums, blocksizes, norms, poscenter); 
+ 
+   void* ortho23Args[] = {&Qi_gdof, &blocksizes};
+   int cdof = CONSERVEDDEGREESOFFREEDOM;
+   cu->executeKernel(ortho23Kernel, ortho23Args, numHessBlocks, CONSERVEDDEGREESOFFREEDOM-4);
+   void* orthoArgs[] = {&blockEigenvectors, &Qi_gdof, &cdof, &blocksizes, &blocknums};
+   cu->executeKernel(orthoKernel, orthoArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+
+   //orthogonalize23<<<numHessBlocks, CONSERVEDDEGREESOFFREEDOM-4>>>(Qi_gdof, blocksizes);
+   //orthogonalize<<<numBlocks, numThreads>>>(blockEigenvectors, Qi_gdof, CONSERVEDDEGREESOFFREEDOM, blocksizes, blocknums);
 }
 
 
 void FBMCuda::formProjectionMatrix() {
-   // Sort eigenvalues
+CudaContext* cu = blockData->contexts[0];
+// Sort eigenvalues
    int oddcount = _3N/2;
    int evencount;
    if (_3N % 2 == 0) evencount = oddcount + 1;
    else evencount = oddcount;
    
+   CUmodule sortModule = cu->createModule(CudaFBMKernelSources::sort);
+   CUfunction oddevenKernel = cu->getKernel(sortModule, "oddEvenEigSort");
+
+   int zero = 0;
+   int one = 1;
+   void* oddevenArgs[] = {&blockEigenvalues, &blockEigenvectors, &zero};
    for (int i = 0; i < ceil(_3N/2); i++) {
       makeBlocksAndThreads(evencount);
-      oddEvenEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors);
+      cu->executeKernel(oddevenKernel, oddevenArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+      //oddEvenEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors);
       makeBlocksAndThreads(oddcount);
-      oddEvenEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors, 1);
+      oddevenArgs[2] = &one;
+      cu->executeKernel(oddevenKernel, oddevenArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+      //oddEvenEigSort<<<numBlocks, numThreads>>>(blockEigenvalues, blockEigenvectors, 1);
+      oddevenArgs[2] = &zero;
    }
 
    // Copy the eigenvalues back and compute m (no way to parallelize that I can see)
@@ -353,53 +485,93 @@ void FBMCuda::formProjectionMatrix() {
    cudaMalloc( (void**) &E, _3N*m*sizeof(float));
    cudaMalloc( (void**) &index, indices.size()*sizeof(int));
    cudaMemcpy(index, &indices[0], indices.size()*sizeof(int), cudaMemcpyHostToDevice);
-   makeProjection<<<numBlocks, numThreads>>>(Et, E, blockEigenvectors, index, _3N);
+
+   CUmodule projectModule = cu->createModule(CudaFBMKernelSources::project);
+   CUfunction projectKernel = cu->getKernel(projectModule, "makeProjection");
+   void* projectArgs[] = {&Et, &E, &blockEigenvectors, &index, &_3N};
+   cu->executeKernel(projectKernel, projectArgs, blockData->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+   //makeProjection<<<numBlocks, numThreads>>>(Et, E, blockEigenvectors, index, _3N);
 }
 
 void FBMCuda::computeHE() {
+CudaContext* cu = data->contexts[0];
    // Temporary buffers to hold positions and forces
    float* pos1;
    float*force1;
    cudaMalloc( (void**) &pos1, _3N*sizeof(float));
    cudaMalloc( (void**) &force1, _3N*sizeof(float));
 
+   CUmodule perturbModule = cu->createModule(CudaFBMKernelSources::perturb);
+CUfunction perturbKernel = cu->getKernel(perturbModule, "perturbPositions");
+CUmodule copyModule = cu->createModule(CudaFBMKernelSources::copy);
+CUfunction copyFromKernel = cu->getKernel(copyModule, "copyFromOpenMM");
+CUfunction copyToKernel = cu->getKernel(copyModule, "copyToOpenMM");
+   CUmodule projectModule = cu->createModule(CudaFBMKernelSources::project);
+   CUfunction projectKernel = cu->getKernel(projectModule, "makeHE");
+
+void* copyFromArgs[] = {&force1, &data->contexts[0]->getPosq().getDevicePointer(), &_3N};
+void* copyToArgs[] = {&data->contexts[0]->getPosq().getDevicePointer(), &pos1, &_3N};
+
    for (int k = 0; k < m; k++) {
        // Peturb positions, +
        makeBlocksAndThreads(_3N);
 
        // Perturb in the positive direction
-       perturbByE<<<numBlocks, numThreads>>>(pos1, &((*(data->gpu->psPosq4))[0].w), params.sDelta, E, masses, k, _3N);
+       void* perturbArgs[] = {&pos1, &data->contexts[0]->getPosq().getDevicePointer(), &params.sDelta, &E, &masses, &k, &_3N};
+       cu->executeKernel(perturbKernel, perturbArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //perturbByE<<<numBlocks, numThreads>>>(pos1, &((*(data->gpu->psPosq4))[0].w), params.sDelta, E, masses, k, _3N);
 
        // Calculate Forces
        context.getState( State::Forces ).getForces();
       
        // Save first force vector
-       copyFromOpenMM<<<numBlocks, numThreads>>>(force1, &((*(data->gpu->psForce4))[0].w), _3N);
+       cu->executeKernel(copyFromKernel, copyFromArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //copyFromOpenMM<<<numBlocks, numThreads>>>(force1, &((*(data->gpu->psForce4))[0].w), _3N);
        
        // Copy back positions
-       copyToOpenMM<<<numBlocks, numThreads>>>(&((*(data->gpu->psPosq4))[0].w), pos1, _3N);
+       cu->executeKernel(copyToKernel, copyToArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //copyToOpenMM<<<numBlocks, numThreads>>>(&((*(data->gpu->psPosq4))[0].w), pos1, _3N);
 
        // Perturb in the the (-) direction 
-       perturbByE<<<numBlocks, numThreads>>>(pos1, &((*(data->gpu->psPosq4))[0].w), -params.sDelta, E, masses, k, _3N);
+       int negdelta = -params.sDelta;
+       perturbArgs[2] = &negdelta;
+       cu->executeKernel(perturbKernel, perturbArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //perturbByE<<<numBlocks, numThreads>>>(pos1, &((*(data->gpu->psPosq4))[0].w), -params.sDelta, E, masses, k, _3N);
+       perturbArgs[2] = &params.sDelta;
        
        // Calculate Forces
        context.getState( State::Forces ).getForces();
       
        // Make HE
        cudaMalloc( (void**) &HE, _3N*m*sizeof(float));
-       makeHE<<<numBlocks, numThreads>>>(HE, force1, &((*(data->gpu->psForce4))[0].w), masses, params.sDelta, k, _3N);
+       void* projectArgs[] = {&HE, &force1, &data->contexts[0]->getForce().getDevicePointer(), &masses, &params.sDelta, &k, &_3N};
+       cu->executeKernel(projectKernel, projectArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //makeHE<<<numBlocks, numThreads>>>(HE, force1, &((*(data->gpu->psForce4))[0].w), masses, params.sDelta, k, _3N);
 
        // Put back positions
-       copyToOpenMM<<<numBlocks, numThreads>>>(&((*(data->gpu->psPosq4))[0].w), pos1, _3N);
+       cu->executeKernel(copyToKernel, copyToArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+       //copyToOpenMM<<<numBlocks, numThreads>>>(&((*(data->gpu->psPosq4))[0].w), pos1, _3N);
    }
 }
 
 void FBMCuda::computeS() {
+CudaContext* cu = data->contexts[0];
    makeBlocksAndThreads(m*m);
 
    cudaMalloc( (void**) &S, m*m*sizeof(float));
-   MatMulKernel<<<numBlocks, numThreads>>>(S, Et, HE, m, _3N);
-   symmetrize2D<<<numBlocks, numThreads>>>(S, m);
+
+   CUmodule matModule = cu->createModule(CudaFBMKernelSources::matmul);
+   CUfunction matFunction = cu->getKernel(matModule, "MatMul");
+   void* matArgs[] = {&S, &Et, &HE, &m, &_3N};
+   cu->executeKernel(matFunction, matArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+
+   CUmodule symmModule = cu->createModule(CudaFBMKernelSources::symmetrize);
+   CUfunction symmFunction = cu->getKernel(symmModule, "symmetrize2D");
+   void* symmArgs[] = {&S, &m};
+   cu->executeKernel(symmFunction, symmArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+
+   //MatMulKernel<<<numBlocks, numThreads>>>(S, Et, HE, m, _3N);
+   //symmetrize2D<<<numBlocks, numThreads>>>(S, m);
 }
 
 void FBMCuda::diagonalizeS() {
@@ -425,15 +597,22 @@ void FBMCuda::diagonalizeS() {
    cudaMalloc( (float**) &Q, m*m*sizeof(float) );
    cudaMemcpy(Q, S, m*m*sizeof(float), cudaMemcpyDeviceToHost);
    //cudaMemcpy(Q, tmpEigvec, m*m*sizeof(float), cudaMemcpyHostToDevice);
-   status = culaDeviceDsyev('V', 'U', m, (double*) &(Q[0][0]), m, (double*)dS);
+   status = culaDeviceDsyev('V', 'U', m, (double*) &(Q[0]), m, (double*)&dS);
 }
 
 void FBMCuda::computeModes(vector<double>& eigenvalues, vector<vector<Vec3> >& modes) {
+CudaContext* cu = data->contexts[0];
    // A matrix multiply, but we have to copy back into formats the user expects
    makeBlocksAndThreads(_3N*m);
    float** U;
    cudaMalloc( (float**) &U, _3N*m*sizeof(float) );
-   MatMulKernel<<<numBlocks, numThreads>>>(U, E, Q, _3N, m);
+
+   CUmodule matModule = cu->createModule(CudaFBMKernelSources::matmul);
+   CUfunction matFunction = cu->getKernel(matModule, "MatMul");
+   void* matArgs[] = {&U, &E, &Q, &_3N, &m};
+   cu->executeKernel(matFunction, matArgs, data->contexts[0]->getNumThreadBlocks()*cu->ThreadBlockSize, cu->ThreadBlockSize);
+
+   //MatMulKernel<<<numBlocks, numThreads>>>(U, E, Q, _3N, m);
 
    eigenvalues.resize(m);
    cudaMemcpy(&(eigenvalues[0]), dS, m*sizeof(float), cudaMemcpyDeviceToHost);
