@@ -74,6 +74,7 @@ if( BUILD_GPU )
     if(OPENMM_SOURCE_DIR)
 	include_directories("${OPENMM_SOURCE_DIR}/platforms/cuda/src/kernels")
 	include_directories("${OPENMM_SOURCE_DIR}/platforms/cuda/include")
+	include_directories("${OPENMM_SOURCE_DIR}/platforms/cuda/src")
     endif()
 
     set( CULA_DIR "$ENV{CULA_HOME}" CACHE PATH "CULA Install Directory" )
