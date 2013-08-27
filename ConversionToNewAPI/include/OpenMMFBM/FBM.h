@@ -23,7 +23,7 @@ class FBM {
    public:
       // Initialize an FBM object
       // Accept appropriate parameters
- FBM(FBMParameters &params);
+ FBM(OpenMMFBM::FBMParameters &params);
 
       // Based on the platform used by the two contexts:
       //    Create the appropriate concrete object of FBMAbstract
@@ -53,7 +53,7 @@ class FBM {
    private:
  FBMAbstract* implementationFactory(OpenMM::Context &context, OpenMM::Context &blockContext, std::string fbmPlatform);
 
- FBMParameters &myParameters;
+ OpenMMFBM::FBMParameters &myParameters;
  FBMAbstract* implementation;
       
 };
