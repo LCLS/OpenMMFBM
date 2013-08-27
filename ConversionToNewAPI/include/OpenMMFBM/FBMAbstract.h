@@ -31,7 +31,7 @@
 
 class FBMAbstract {
    public:
- FBMAbstract(OpenMM::Context &c, OpenMM::Context &bC, FBMParameters &p) : context(c), blockContext(bC), params(p) {}
+ FBMAbstract(OpenMM::Context &c, OpenMM::Context &bC, OpenMMFBM::FBMParameters &p) : context(c), blockContext(bC), params(p) {}
       // This will be implemented here, and will simply call the pure virtual
       // functions below with CPU 'glue code' in between.
       virtual void run(std::vector<double> &eigenvalues, std::vector<std::vector<OpenMM::Vec3> > &modes, std::string blockdiag, std::string diag) {
@@ -66,14 +66,14 @@ class FBMAbstract {
 
 	initialize();
 	formBlocks();  // blockHessian
-	/*
+	
 	diagonalizeBlocks();
 	formProjectionMatrix(); // E
 	computeHE();  // HE
 	computeS();   // S
 	diagonalizeS();  // Q
 	computeModes(eigenvalues, modes); // U, or modes
-	*/
+	
 
 	   /*
 	   delete bd;
@@ -97,7 +97,7 @@ class FBMAbstract {
       // Initialized in the constructor
       OpenMM::Context &context;
       OpenMM::Context &blockContext;
-      FBMParameters &params;
+      OpenMMFBM::FBMParameters &params;
 
    private:
       // Each of these functions will be implemented in our two child classes
