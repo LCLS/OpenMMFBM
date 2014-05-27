@@ -655,7 +655,7 @@ namespace OpenMMFBM {
                 break;
             }
             case Preference::CUDA:{
-                blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "Cuda" ) );
+                blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "CUDA" ) );
                 break;
             }
         }

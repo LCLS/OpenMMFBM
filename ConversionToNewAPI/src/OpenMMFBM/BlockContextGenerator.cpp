@@ -274,7 +274,7 @@ Context* BlockContextGenerator::generateBlockContext(Context &context) {
     blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "OpenCL" ) );
     break;
   case OpenMMFBM::Preference::CUDA:
-    blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "Cuda" ) );
+    blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "CUDA" ) );
     break;
   }
 

@@ -1,4 +1,4 @@
-project( OpenMMFBM )
+project( OpenMMFBMCuda )
 cmake_minimum_required( VERSION 2.6 )
 
 include_directories( "include" )
@@ -48,6 +48,7 @@ if( OPENMM_SOURCE_DIR )
 endif()
 
 find_library( OPENMM_LIB "OpenMM" HINT ${OPENMM_DIR}/lib )
+find_library( OPENMM_CUDA_LIB "OpenMMCuda" HINT "${OPENMM_DIR}/lib/plugins/")
 
 # First Order
 option( BUILD_FIRST_ORDER "Build with first order perterb" Off )
@@ -61,6 +62,7 @@ file( GLOB OPENMMFBM_HEADERS include/OpenMMFBM/*.h )
 source_group( "include\\OpenMMFBM" FILES ${OPENMMFBM_HEADERS} )
 
 file( GLOB OPENMMFBM_SOURCES src/OpenMMFBM/*.cpp )
+file( GLOB OPENMMFBM_SOURCES src/OpenMMFBM/kernels/*.cpp )
 source_group( "src\\OpenMMFBM" FILES ${OPENMMFBM_SOURCES} )
 
 # GPU bits
@@ -77,6 +79,14 @@ if( BUILD_GPU )
 	include_directories("${OPENMM_SOURCE_DIR}/platforms/cuda/src")
     endif()
 
+    set( MAGMA_DIR "$ENV{MAGMA_HOME}" CACHE PATH "MAGMA Install Directory" )
+    if( MAGMA_DIR )
+	add_definitions( "-DHAVE_CUBLAS" )
+    	link_directories("${MAGMA_DIR}/lib/" )
+	include_directories("${MAGMA_DIR}/include")
+        find_library( MAGMA_LIB "magma" HINT "${MAGMA_DIR}/lib/")
+    endif()	
+    
     set( CULA_DIR "$ENV{CULA_HOME}" CACHE PATH "CULA Install Directory" )
     if( CULA_DIR )
     	#link_directories("${CULA_DIR}/lib64/" )
@@ -99,15 +109,15 @@ if( BUILD_GPU )
 
     #add_library( OpenMMFBMRef SHARED ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
     #CUDA_ADD_LIBRARY( OpenMMFBM SHARED ${OPENMMFBM_CUDA_HEADERS} ${OPENMMFBM_CUDA_SOURCES})
-    CUDA_ADD_LIBRARY( OpenMMFBM SHARED ${OPENMMFBM_CUDA_HEADERS} ${OPENMMFBM_CUDA_SOURCES} ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
-    set_target_properties( OpenMMFBM PROPERTIES COMPILE_FLAGS "-DOPENMMFBM_CUDA")
+    CUDA_ADD_LIBRARY( OpenMMFBMCuda SHARED ${OPENMMFBM_CUDA_HEADERS} ${OPENMMFBM_CUDA_SOURCES} ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
+    set_target_properties( OpenMMFBMCuda PROPERTIES COMPILE_FLAGS "-DOPENMMFBM_CUDA")
     #target_link_libraries( OpenMMFBM OpenMMFBMRef )
     #install( TARGETS OpenMMFBMCuda LIBRARY DESTINATION "lib" )
 else()
-    add_library( OpenMMFBM SHARED ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
+    add_library( OpenMMFBMCuda SHARED ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
 endif()
     
-target_link_libraries( OpenMMFBM ${OPENMM_LIB} )
+target_link_libraries( OpenMMFBMCuda ${OPENMM_LIB} ${OPENMM_CUDA_LIB} ${MAGMA_LIB} )
 
 
 
@@ -125,4 +135,4 @@ install(
 	PATTERN ".*" EXCLUDE
 )
 
-install( TARGETS OpenMMFBM LIBRARY DESTINATION "lib" ARCHIVE DESTINATION "lib" )
+install( TARGETS OpenMMFBMCuda LIBRARY DESTINATION "lib" ARCHIVE DESTINATION "lib" )

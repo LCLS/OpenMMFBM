@@ -3,8 +3,9 @@
 #include "kernels/qr.cu"
 //#include <cuda.h>
 #include "OpenMMFBM/CudaFBMKernelSources.h"
-#include "cula_lapack_device.h"
-#include "cula.h"
+#include "magma_d.h"
+//#include "cula_lapack_device.h"
+//#include "cula.h"
 #include "CudaArray.h"
 #include "CudaContext.h"
 #include "openmm/internal/ContextImpl.h"
@@ -576,11 +577,11 @@ CudaContext* cu = data->contexts[0];
 
 void FBMCuda::diagonalizeS() {
    // Initialize Cula and check for errors
-   culaStatus status = culaInitialize();
-   if(status != culaNoError)
-   {
-     cout << culaGetStatusString(status) << endl;
-   }
+   //culaStatus status = culaInitialize();
+   //if(status != culaNoError)
+   //{
+   //  cout << culaGetStatusString(status) << endl;
+   //}
 
    // Temporary, for eigenvectors and eigenvalues of S
    // Cula populates the same array
@@ -597,7 +598,14 @@ void FBMCuda::diagonalizeS() {
    cudaMalloc( (float**) &Q, m*m*sizeof(float) );
    cudaMemcpy(Q, S, m*m*sizeof(float), cudaMemcpyDeviceToHost);
    //cudaMemcpy(Q, tmpEigvec, m*m*sizeof(float), cudaMemcpyHostToDevice);
-   status = culaDeviceDsyev('V', 'U', m, (double*) &(Q[0]), m, (double*)&dS);
+   //status = culaDeviceDsyev('V', 'U', m, (double*) &(Q[0]), m, (double*)&dS);
+
+   int lwork = 1 + 6*m + 2*m*m;
+   double* work = (double*) malloc(lwork*sizeof(double));
+   int liwork = 3 + 5*m;
+   int* iwork = (int*)malloc(liwork*sizeof(int));
+   int info;
+   magma_dsyevd('V', 'U', m, (double*) &(Q[0]), m, (double*)&dS, work,  lwork, iwork, liwork, &info);
 }
 
 void FBMCuda::computeModes(vector<double>& eigenvalues, vector<vector<Vec3> >& modes) {

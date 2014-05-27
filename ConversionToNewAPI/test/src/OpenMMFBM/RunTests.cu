@@ -256,7 +256,7 @@ bool testBlockCopyFrom() {
    int* gpu_blocnums;
    cudaMalloc(&gpu_blocnums, 5*sizeof(int));
    cudaMemcpy(gpu_blocnums, blocnums, 5*sizeof(int), cudaMemcpyHostToDevice);
-   blockCopyFromOpenMM<<<1, 5>>>(gpu_posorig, gpu_pos, gpu_blocnums, 5, 0, numatoms);
+   blockcopyFromOpenMM<<<1, 5>>>(gpu_posorig, gpu_pos, gpu_blocnums, 5, 0, numatoms);
    float4* check3 = (float4*)malloc(numatoms*sizeof(float4));
    cudaMemcpy(check3, gpu_pos, numatoms*sizeof(float4), cudaMemcpyDeviceToHost);
    float* check4 = (float*)malloc(3*numatoms*sizeof(float));
