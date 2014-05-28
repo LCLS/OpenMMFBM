@@ -605,7 +605,7 @@ void FBMCuda::diagonalizeS() {
    int liwork = 3 + 5*m;
    int* iwork = (int*)malloc(liwork*sizeof(int));
    int info;
-   magma_dsyevd('V', 'U', m, (double*) &(Q[0]), m, (double*)&dS, work,  lwork, iwork, liwork, &info);
+   magma_dsyevd(MagmaVec, MagmaUpper, m, (double*) &(Q[0]), m, (double*)&dS, work,  lwork, iwork, liwork, &info);
 }
 
 void FBMCuda::computeModes(vector<double>& eigenvalues, vector<vector<Vec3> >& modes) {
