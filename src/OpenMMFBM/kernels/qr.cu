@@ -62,7 +62,7 @@ extern "C" void QRStep( float *matrix, const size_t matrix_size ) {
 	cudaMemcpy( matrix_d, matrix, sizeof( float )*matrix_size, cudaMemcpyHostToDevice );
 
 	dim3 threads( 16, 16, 1 );
-	dim3 blocks( n_mat + 1, 1 );
+	dim3 blocks( 1, 1 );
 
 	run8_2_2<<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
 
