@@ -9,9 +9,11 @@ namespace FBM {
 			private:
 				CPPUNIT_TEST_SUITE(Test);
                 CPPUNIT_TEST(SingleMatrix4);
+				CPPUNIT_TEST(MultipleMatrix4);
 				CPPUNIT_TEST_SUITE_END();
 			public:
 				void SingleMatrix4();
+				void MultipleMatrix4();
 		};
 	}
 }
