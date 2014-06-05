@@ -56,7 +56,63 @@ __device__ void run8_2_2( float *matA, const int length, int p, int q ) {
 	}
 }
 
-extern "C" void QRStep( float *matrix, const size_t matrix_size ) {
+__global__ void run8_2_2_global( float *matA, const int length, int p, int q ) {
+	q = q - 1;
+	int n = length - p - q;
+	float c, s;
+	float tnn = matA[( p + n - 1 ) * length + p + n - 1];
+	float tn1n1 = matA[length * ( p + n - 2 ) + p + n - 2];
+	float tnn1 = matA[length * ( p + n - 2 ) + p + n - 1];
+	float d = ( tn1n1 - tnn ) / 2;
+	float mu = tnn - tnn1 * tnn1 / ( d + ( d > 0.0f ? 1.0f : -1.0f ) * sqrt( d * d + tnn1 * tnn1 ) );
+	float x = matA[p * length + p] - mu;
+	float z = matA[p * length + p + 1];
+	for( int k = 0; k < n - 1; k++ ) {
+		// "givens" function:
+		if( z == 0 ) {
+			c = 1;
+			s = 0;
+		} else {
+			if( abs( z ) > abs( x ) ) {
+				const float tau = -x / z;
+				s = 1 / sqrt( 1 + tau * tau );
+				c = s * tau;
+			} else {
+				const float tau = -z / x;
+				c = 1 / sqrt( 1 + tau * tau );
+				s = c * tau;
+			}
+		}
+		// T = GtTG, G = G(k,k+1,omega) (givens rotation)
+		float t11 = matA[( p + k ) * length + p + k];
+		float t12 = matA[( p + k ) * length + p + k + 1];
+		float t22 = matA[( p + k + 1 ) * length + p + k + 1];
+		if( k < n - 2 ) {
+			matA[( p + k )*length + p + k + 2] = -s * matA[( p + k + 1 ) * length + p + k + 2];
+			matA[( p + k + 1 )*length + p + k + 2] = c * matA[( p + k + 1 ) * length + p + k + 2];
+			matA[( p + k + 2 )*length + p + k + 1] = matA[( p + k + 1 ) * length + p + k + 2];
+			matA[( p + k + 2 )*length + p + k] = matA[( p + k ) * length + p + k + 2];
+		}
+		if( k != 0 ) {
+			matA[( p + k - 1 )*length + p + k] = c * matA[( p + k - 1 ) * length + p + k] - s * matA[( p + k - 1 ) * length + p + k + 1];
+			matA[( p + k )*length + p + k + 1] = matA[( p + k - 1 ) * length + p + k];
+			matA[( p + k - 1 )*length + p + k + 1] = 0.0f;
+			matA[( p + k + 1 )*length + p + k - 1] = 0.0f;
+		}
+
+		matA[( p + k )*length + p + k] = c * c * t11 - 2 * s * c * t12 + s * s * t22;
+		matA[( p + k )*length + p + k + 1] = c * s * t11 + ( c * c - s * s ) * t12 - s * c * t22;
+		matA[( p + k + 1 )*length + p + k] = matA[( p + k ) * length + p + k + 1];
+		matA[( p + k + 1 )*length + p + k + 1] = s * s * t11 + 2 * s * c * t12 + c * c * t22;
+
+		if( k < n - 2 ) {
+			x = matA[( p + k + 1 ) * length + p + k];
+			z = matA[( p + k + 2 ) * length + p + k];
+		}
+	}
+}
+
+extern "C" void QRStep822( float *matrix, const size_t matrix_size ) {
 	float *matrix_d;
 	cudaMalloc( ( void ** )&matrix_d, sizeof( float )*matrix_size );
 	cudaMemcpy( matrix_d, matrix, sizeof( float )*matrix_size, cudaMemcpyHostToDevice );
@@ -64,7 +120,7 @@ extern "C" void QRStep( float *matrix, const size_t matrix_size ) {
 	dim3 threads( 16, 16, 1 );
 	dim3 blocks( 1, 1 );
 
-	run8_2_2<<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
+	run8_2_2_global<<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
 
 	// Copy Data Back
 	cudaMemcpy( ( void ** )&matrix, matrix_d, sizeof( float )*matrix_size, cudaMemcpyDeviceToHost );

@@ -7,6 +7,7 @@
 
 CPPUNIT_TEST_SUITE_REGISTRATION(FBM::QR::Test);
 
+extern "C" void QRStep822( float *matrix, const size_t matrix_size );
 extern "C" void BlockQR_HOST( const int n_mat, float* matrix, const size_t matrix_size, const int* index, const size_t index_size, const int* sizes, const size_t sizes_size );
 
 namespace FBM {
@@ -26,7 +27,7 @@ namespace FBM {
 				0.0000000, 0.0000000, 0.0000044, 4.0024970
 			};
 
-			QRStep( matrix, 16 );
+			QRStep822( matrix, 16 );
 
 			for( size_t i = 0; i < 16; i++ ) {
 				CPPUNIT_ASSERT_DOUBLES_EQUAL( matrix[i], expected_matrix[i], 1e-5 );
