@@ -3,8 +3,7 @@
 __device__ void run8_2_2( float *matA, const int length, int p, int q ) {
 	q = q - 1;
 	int n = length - p - q;
-	int k;
-	float tau, c, s, t11, t12, t22;
+	float c, s;
 	float tnn = matA[( p + n - 1 ) * length + p + n - 1];
 	float tn1n1 = matA[length * ( p + n - 2 ) + p + n - 2];
 	float tnn1 = matA[length * ( p + n - 2 ) + p + n - 1];
@@ -12,26 +11,26 @@ __device__ void run8_2_2( float *matA, const int length, int p, int q ) {
 	float mu = tnn - tnn1 * tnn1 / ( d + ( d > 0.0f ? 1.0f : -1.0f ) * sqrt( d * d + tnn1 * tnn1 ) );
 	float x = matA[p * length + p] - mu;
 	float z = matA[p * length + p + 1];
-	for( k = 0; k < n - 1; k++ ) {
+	for( int k = 0; k < n - 1; k++ ) {
 		// "givens" function:
 		if( z == 0 ) {
 			c = 1;
 			s = 0;
 		} else {
 			if( abs( z ) > abs( x ) ) {
-				tau = -x / z;
+				const float tau = -x / z;
 				s = 1 / sqrt( 1 + tau * tau );
 				c = s * tau;
 			} else {
-				tau = -z / x;
+				const float tau = -z / x;
 				c = 1 / sqrt( 1 + tau * tau );
 				s = c * tau;
 			}
 		}
 		// T = GtTG, G = G(k,k+1,omega) (givens rotation)
-		t11 = matA[( p + k ) * length + p + k];
-		t12 = matA[( p + k ) * length + p + k + 1];
-		t22 = matA[( p + k + 1 ) * length + p + k + 1];
+		float t11 = matA[( p + k ) * length + p + k];
+		float t12 = matA[( p + k ) * length + p + k + 1];
+		float t22 = matA[( p + k + 1 ) * length + p + k + 1];
 		if( k < n - 2 ) {
 			matA[( p + k )*length + p + k + 2] = -s * matA[( p + k + 1 ) * length + p + k + 2];
 			matA[( p + k + 1 )*length + p + k + 2] = c * matA[( p + k + 1 ) * length + p + k + 2];
@@ -57,6 +56,23 @@ __device__ void run8_2_2( float *matA, const int length, int p, int q ) {
 	}
 }
 
+extern "C" void QRStep( float *matrix, const size_t matrix_size ) {
+	float *matrix_d;
+	cudaMalloc( ( void ** )&matrix_d, sizeof( float )*matrix_size );
+	cudaMemcpy( matrix_d, matrix, sizeof( float )*matrix_size, cudaMemcpyHostToDevice );
+
+	dim3 threads( 16, 16, 1 );
+	dim3 blocks( n_mat + 1, 1 );
+
+	run8_2_2<<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
+
+	// Copy Data Back
+	cudaMemcpy( ( void ** )&matrix, matrix_d, sizeof( float )*matrix_size, cudaMemcpyDeviceToHost );
+
+	// Cleanup
+	cudaFree( matrix_d );
+}
+
 // Assuming these things:
 // A symmetric positive matrix (from the hessian)
 // The matrix will be small (40 to 200)
@@ -69,7 +85,7 @@ __device__ void hessian_qrf( const int n, float *A, const int t_width ) {
 	float mu;
 	const float eps = 0.0000000001f;
 	int k, i, cur1, cur2, l, startX, startY;
-	extern __shared__ float v[];
+	__shared__ float v[1024];
 	float *p;
 	float *w;
 	p = v + n;

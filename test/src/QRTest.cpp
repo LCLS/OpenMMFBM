@@ -11,6 +11,28 @@ extern "C" void BlockQR_HOST( const int n_mat, float* matrix, const size_t matri
 
 namespace FBM {
 	namespace QR {
+		void Test::QRStep() {
+			float matrix[16] = {
+				1.0000, 1.0000, 0.0000, 0.0000,
+				1.0000, 2.0000, 1.0000, 0.0000,
+				0.0000, 1.0000, 3.0000, 0.0100,
+				0.0000, 0.0000, 0.0100, 4.0000
+			};
+
+			const float expected_matrix[16] = {
+				0.5000000, 0.5916000, 0.0000000, 0.0000000,
+				0.5916000, 1.7850000, 0.1808000, 0.0000000,
+				0.0000000, 0.1808000, 3.7140000, 0.0000044,
+				0.0000000, 0.0000000, 0.0000044, 4.0024970
+			};
+
+			QRStep( matrix, 16 );
+
+			for( size_t i = 0; i < 16; i++ ) {
+				CPPUNIT_ASSERT_DOUBLES_EQUAL( matrix[i], expected_matrix[i], 1e-5 );
+			}
+		}
+
 		void Test::SingleMatrix4() {
             float matrix[16] = {
                 0.1734, 0.0605, 0.6569, 0.0155,
