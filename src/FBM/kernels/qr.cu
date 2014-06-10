@@ -120,7 +120,7 @@ extern "C" void QRStep822( float *matrix, const size_t matrix_size ) {
 	dim3 threads( 16, 16, 1 );
 	dim3 blocks( 1, 1 );
 
-	run8_2_2_global<<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
+	run8_2_2_global <<< blocks, threads >>>( matrix_d, matrix_size, 0, 0 );
 
 	// Copy Data Back
 	cudaMemcpy( ( void ** )&matrix, matrix_d, sizeof( float )*matrix_size, cudaMemcpyDeviceToHost );

@@ -16,36 +16,36 @@
 
 using namespace std;
 
-FBM::FBM(OpenMMFBM::FBMParameters &params) : myParameters(params) {
+FBM::FBM( OpenMMFBM::FBMParameters &params ) : myParameters( params ) {
 
 }
 
-void FBM::run(OpenMM::Context &context, OpenMM::Context &blockContext, std::vector<std::vector<OpenMM::Vec3> > &modes, std::vector<double> &eigenvalues, std::string fbmPlatform) {
+void FBM::run( OpenMM::Context &context, OpenMM::Context &blockContext, std::vector<std::vector<OpenMM::Vec3> > &modes, std::vector<double> &eigenvalues, std::string fbmPlatform ) {
 
-  cout << "In FBM::run" << endl;
+	cout << "In FBM::run" << endl;
 
-  implementation = implementationFactory(context, blockContext, fbmPlatform);
+	implementation = implementationFactory( context, blockContext, fbmPlatform );
 
-  cout << "have my implementation!" << endl;
+	cout << "have my implementation!" << endl;
 
-  implementation->run(eigenvalues, modes, "", "");
+	implementation->run( eigenvalues, modes, "", "" );
 }
 
-FBMAbstract* FBM::implementationFactory(OpenMM::Context &context, OpenMM::Context &blockContext, std::string fbmPlatform) {
-  cout << "In our \"factory\"..." << endl;
+FBMAbstract *FBM::implementationFactory( OpenMM::Context &context, OpenMM::Context &blockContext, std::string fbmPlatform ) {
+	cout << "In our \"factory\"..." << endl;
 
-  FBMAbstract* fbmImplementation = NULL;
+	FBMAbstract *fbmImplementation = NULL;
 
-  #ifdef OPENMMFMB_CUDA
-  if(fbmPlatform == "Cuda") {
-    fbmImplementation = new FBMCuda(context, blockContext, myParameters);
-  }
-  #endif
+#ifdef OPENMMFMB_CUDA
+	if( fbmPlatform == "Cuda" ) {
+		fbmImplementation = new FBMCuda( context, blockContext, myParameters );
+	}
+#endif
 
-  if(fbmImplementation == NULL) {
-    fbmImplementation = new OpenMMFBM::FBMReference(context, blockContext, myParameters);
-  }
+	if( fbmImplementation == NULL ) {
+		fbmImplementation = new OpenMMFBM::FBMReference( context, blockContext, myParameters );
+	}
 
-  cout << "Have implementation!" << endl;
-  return fbmImplementation;
+	cout << "Have implementation!" << endl;
+	return fbmImplementation;
 }
