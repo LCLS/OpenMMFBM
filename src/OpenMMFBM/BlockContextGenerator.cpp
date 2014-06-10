@@ -21,15 +21,15 @@ bool BlockContextGenerator::inSameBlock( const vector<int> &blockSizes, const in
   if( blockNumber( blockSizes, p1 ) != blockNumber( blockSizes, p2 ) ) {
     return false;
   }
-  
+
   if( p3 != -1 && blockNumber( blockSizes, p3 ) != blockNumber( blockSizes, p1 ) ) {
     return false;
   }
-  
+
   if( p4 != -1 && blockNumber( blockSizes, p4 ) != blockNumber( blockSizes, p1 ) ) {
     return false;
   }
-  
+
   return true;   // They're all the same!
 }
 
@@ -45,28 +45,28 @@ void BlockContextGenerator::determineBlockSizes(int residuesPerBlock, const vect
     }
     block_start += params.residue_sizes[i];
   }
-  
+
   for( int i = 1; i < blockSizes.size(); i++ ) {
     int block_size = blockSizes[i] - blockSizes[i - 1];
     if( block_size > mLargestBlockSize ) {
       mLargestBlockSize = block_size;
     }
   }
-  
+
   mLargestBlockSize *= 3; // degrees of freedom in the largest block
   cout << "blocks " << blockSizes.size() << endl;
   cout << blockSizes[blockSizes.size() - 1] << endl;
 }
-  
 
 
-  void BlockContextGenerator::addBondForce(const int forceIndex, const vector<int> &blockSizes, System *system, System *blockSystem) {
+
+  void BlockContextGenerator::addBondForce(const int forceIndex, const vector<int> &blockSizes, const System& system, System *blockSystem) {
       // Create a new harmonic bond force.
       // This only contains pairs of atoms which are in the same block.
       // I have to iterate through each bond from the old force, then
       // selectively add them to the new force based on this condition.
       HarmonicBondForce *hf = new HarmonicBondForce();
-      const HarmonicBondForce *ohf = dynamic_cast<const HarmonicBondForce *>( &system->getForce( params.forces[forceIndex].index ) );
+      const HarmonicBondForce *ohf = dynamic_cast<const HarmonicBondForce *>( &system.getForce( params.forces[forceIndex].index ) );
       for( int i = 0; i < ohf->getNumBonds(); i++ ) {
 	// For our system, add bonds between atoms in the same block
 	int particle1, particle2;
@@ -79,10 +79,10 @@ void BlockContextGenerator::determineBlockSizes(int residuesPerBlock, const vect
       blockSystem->addForce( hf );
 }
 
-  void BlockContextGenerator::addAngleForce(int forceIndex, const vector<int> &blockSizes, System *system, System *blockSystem) {
+  void BlockContextGenerator::addAngleForce(int forceIndex, const vector<int> &blockSizes, const System& system, System *blockSystem) {
       // Same thing with the angle force....
       HarmonicAngleForce *af = new HarmonicAngleForce();
-      const HarmonicAngleForce *ahf = dynamic_cast<const HarmonicAngleForce *>( &system->getForce( params.forces[forceIndex].index ) );
+      const HarmonicAngleForce *ahf = dynamic_cast<const HarmonicAngleForce *>( &system.getForce( params.forces[forceIndex].index ) );
       for( int i = 0; i < ahf->getNumAngles(); i++ ) {
 	// For our system, add bonds between atoms in the same block
 	int particle1, particle2, particle3;
@@ -96,10 +96,10 @@ void BlockContextGenerator::determineBlockSizes(int residuesPerBlock, const vect
 
  }
 
-  void BlockContextGenerator::addPeriodicTorsionForce(int forceIndex, const vector<int> &blockSizes, System *system, System *blockSystem) {
+  void BlockContextGenerator::addPeriodicTorsionForce(int forceIndex, const vector<int> &blockSizes, const System& system, System *blockSystem) {
       // And the dihedrals....
       PeriodicTorsionForce *ptf = new PeriodicTorsionForce();
-      const PeriodicTorsionForce *optf = dynamic_cast<const PeriodicTorsionForce *>( &system->getForce( params.forces[forceIndex].index ) );
+      const PeriodicTorsionForce *optf = dynamic_cast<const PeriodicTorsionForce *>( &system.getForce( params.forces[forceIndex].index ) );
       for( int i = 0; i < optf->getNumTorsions(); i++ ) {
 	// For our system, add bonds between atoms in the same block
 	int particle1, particle2, particle3, particle4, periodicity;
@@ -112,11 +112,11 @@ void BlockContextGenerator::determineBlockSizes(int residuesPerBlock, const vect
       blockSystem->addForce( ptf );
  }
 
-  void BlockContextGenerator::addRBTorsionForce(int forceIndex,  const vector<int> &blockSizes, System *system, System *blockSystem)
+  void BlockContextGenerator::addRBTorsionForce(int forceIndex,  const vector<int> &blockSizes, const System& system, System *blockSystem)
  {
    // And the impropers....
    RBTorsionForce *rbtf = new RBTorsionForce();
-   const RBTorsionForce *orbtf = dynamic_cast<const RBTorsionForce *>( &system->getForce( params.forces[forceIndex].index ) );
+   const RBTorsionForce *orbtf = dynamic_cast<const RBTorsionForce *>( &system.getForce( params.forces[forceIndex].index ) );
    for( int i = 0; i < orbtf->getNumTorsions(); i++ ) {
      // For our system, add bonds between atoms in the same block
      int particle1, particle2, particle3, particle4;
@@ -129,22 +129,22 @@ void BlockContextGenerator::determineBlockSizes(int residuesPerBlock, const vect
    blockSystem->addForce( rbtf );
  }
 
-void BlockContextGenerator::addNonbondedForce(int forceIndex, const vector<int> &blockSizes, System *system, System *blockSystem) {
+void BlockContextGenerator::addNonbondedForce(int forceIndex, const vector<int> &blockSizes, const System& system, System *blockSystem) {
       // This is a custom nonbonded pairwise force and
       // includes terms for both LJ and Coulomb.
       // Note that the step term will go to zero if block1 does not equal block 2,
       // and will be one otherwise.
       CustomBondForce *cbf = new CustomBondForce( "4*eps*((sigma/r)^12-(sigma/r)^6)+138.935456*q/r" );
-      const NonbondedForce *nbf = dynamic_cast<const NonbondedForce *>( &system->getForce( params.forces[forceIndex].index ) );
-      
+      const NonbondedForce *nbf = dynamic_cast<const NonbondedForce *>( &system.getForce( params.forces[forceIndex].index ) );
+
       cbf->addPerBondParameter( "q" );
       cbf->addPerBondParameter( "sigma" );
       cbf->addPerBondParameter( "eps" );
-      
+
       // store exceptions
       // exceptions[p1][p2] = params
       map<int, map<int, vector<double> > > exceptions;
-      
+
       for( int i = 0; i < nbf->getNumExceptions(); i++ ) {
 	int p1, p2;
 	double q, sig, eps;
@@ -163,7 +163,7 @@ void BlockContextGenerator::addNonbondedForce(int forceIndex, const vector<int> 
 	  }
 	}
       }
-      
+
       // add particle params
       // TODO: iterate over block dimensions to reduce to O(b^2 N_b)
       for( int i = 0; i < nbf->getNumParticles() - 1; i++ ) {
@@ -180,30 +180,28 @@ void BlockContextGenerator::addNonbondedForce(int forceIndex, const vector<int> 
 	  else {
 	    vector<double> params;
 	    double q1, q2, eps1, eps2, sigma1, sigma2, q, eps, sigma;
-	    
+
 	    nbf->getParticleParameters( i, q1, sigma1, eps1 );
 	    nbf->getParticleParameters( j, q2, sigma2, eps2 );
-	    
+
 	    q = q1 * q2;
 	    sigma = 0.5 * ( sigma1 + sigma2 );
 	    eps = sqrt( eps1 * eps2 );
-	    
+
 	    params.push_back( q );
 	    params.push_back( sigma );
 	    params.push_back( eps );
-	    
+
 	    cbf->addBond( i, j, params );
 	  }
 	}
       }
-      
+
       blockSystem->addForce( cbf );
  }
 
 
 Context* BlockContextGenerator::generateBlockContext(Context &context) {
-  System *system = & context.getSystem();
-  
   vector<int> blockSizes;
 
   determineBlockSizes(params.res_per_block, params.residue_sizes, blockSizes);
@@ -214,20 +212,20 @@ Context* BlockContextGenerator::generateBlockContext(Context &context) {
   const unsigned int mParticleCount = positions.size();
 
   cout << "n particles " << mParticleCount << endl;
-        
+
   vector<double> mParticleMass;
   mParticleMass.reserve( mParticleCount );
   for( unsigned int i = 0; i < mParticleCount; i++ ){
-    mParticleMass.push_back( system->getParticleMass( i ) );
-  }	
-        
+    mParticleMass.push_back( context.getSystem().getParticleMass( i ) );
+  }
+
   System *blockSystem = new System();
 
   cout << "res per block " << params.res_per_block << endl;
   for( int i = 0; i < mParticleCount; i++ ) {
     blockSystem->addParticle( mParticleMass[i] );
   }
-  
+
   // Creating a whole new system called the blockSystem.
   // This system will only contain bonds, angles, dihedrals, and impropers
   // between atoms in the same block.
@@ -236,35 +234,33 @@ Context* BlockContextGenerator::generateBlockContext(Context &context) {
   // This necessitates some copying from the original system, but is required
   // because OpenMM populates all data when it reads XML.
   // Copy all atoms into the block system.
-  
+
   // Copy the center of mass force.
   cout << "adding forces..." << endl;
   for( int i = 0; i < params.forces.size(); i++ ) {
     string forcename = params.forces[i].name;
     cout << "Adding force " << forcename << " at index " << params.forces[i].index << endl;
-    if( forcename == "CenterOfMass" ) {
-      blockSystem->addForce( &system->getForce( params.forces[i].index ) );
-    } else if( forcename == "Bond" ) {
-      addBondForce(i, blockSizes, system, blockSystem);
+    if( forcename == "Bond" ) {
+      addBondForce(i, blockSizes, context.getSystem(), blockSystem);
     } else if( forcename == "Angle" ) {
-      addAngleForce(i, blockSizes, system, blockSystem);
+      addAngleForce(i, blockSizes, context.getSystem(), blockSystem);
     } else if( forcename == "Dihedral" ) {
-      addPeriodicTorsionForce(i, blockSizes, system, blockSystem);
+      addPeriodicTorsionForce(i, blockSizes, context.getSystem(), blockSystem);
     } else if( forcename == "Improper" ) {
-      addRBTorsionForce(i, blockSizes, system, blockSystem);
+      addRBTorsionForce(i, blockSizes, context.getSystem(), blockSystem);
     } else if( forcename == "Nonbonded" ) {
-      addNonbondedForce(i, blockSizes, system, blockSystem);
+      addNonbondedForce(i, blockSizes, context.getSystem(), blockSystem);
     } else {
       cout << "Unknown Force: " << forcename << endl;
     }
   }
 
   cout << "done." << endl;
-  
+
   VerletIntegrator *integ = new VerletIntegrator( 0.000001 );
 
   Context *blockContext;
-  
+
   switch( params.blockPlatform ) {
 
   case OpenMMFBM::Preference::Reference:
@@ -281,5 +277,5 @@ Context* BlockContextGenerator::generateBlockContext(Context &context) {
   blockContext->setPositions(positions);
 
   return blockContext;
-  
+
 }

@@ -17,15 +17,15 @@ class BlockContextGenerator {
   OpenMM::Context* generateBlockContext(OpenMM::Context &context);
 
  private:
-  void addBondForce(const int forceIndex, const std::vector<int> &blockSizes, OpenMM::System *system, OpenMM::System *blockSystem);
+  void addBondForce(const int forceIndex, const std::vector<int> &blockSizes, const OpenMM::System& system, OpenMM::System *blockSystem);
 
-  void addAngleForce(const int forceIndex, const std::vector<int> &blockSizes, OpenMM::System *system, OpenMM::System *blockSystem);
+  void addAngleForce(const int forceIndex, const std::vector<int> &blockSizes, const OpenMM::System& system, OpenMM::System *blockSystem);
 
-  void addPeriodicTorsionForce(const int forceIndex, const std::vector<int> &blockSizes, OpenMM::System *system, OpenMM::System *blockSystem);
+  void addPeriodicTorsionForce(const int forceIndex, const std::vector<int> &blockSizes, const OpenMM::System& system, OpenMM::System *blockSystem);
 
-  void addRBTorsionForce(const int forceIndex, const std::vector<int> &blockSizes, OpenMM::System *system, OpenMM::System *blockSystem);
+  void addRBTorsionForce(const int forceIndex, const std::vector<int> &blockSizes, const OpenMM::System& system, OpenMM::System *blockSystem);
 
-  void addNonbondedForce(const int forceIndex, const std::vector<int> &blockSizes, OpenMM::System *system, OpenMM::System *blockSystem);
+  void addNonbondedForce(const int forceIndex, const std::vector<int> &blockSizes, const OpenMM::System& system, OpenMM::System *blockSystem);
 
   void determineBlockSizes(int residuesPerBlock, const std::vector<int> &residueSizes, std::vector<int> &blockSizes)
     ;
@@ -39,5 +39,3 @@ class BlockContextGenerator {
 };
 
 #endif //BLOCKCONTEXTGENERATOR_H
-
-  

@@ -19,7 +19,7 @@ endif( BUILD_MKL )
 option( BUILD_OPENMP "Build with openmp support" Off )
 if( BUILD_OPENMP )
     # Intel
-    if (${CMAKE_CXX_COMPILER} MATCHES "icc.*$") 
+    if (${CMAKE_CXX_COMPILER} MATCHES "icc.*$")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -openmp")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -openmp")
@@ -62,8 +62,10 @@ file( GLOB OPENMMFBM_HEADERS include/OpenMMFBM/*.h )
 source_group( "include\\OpenMMFBM" FILES ${OPENMMFBM_HEADERS} )
 
 file( GLOB OPENMMFBM_SOURCES src/OpenMMFBM/*.cpp )
-file( GLOB OPENMMFBM_SOURCES src/OpenMMFBM/kernels/*.cpp )
+file( GLOB OPENMMFBM_KERNEL_SOURCES src/OpenMMFBM/kernels/*.cu )
 source_group( "src\\OpenMMFBM" FILES ${OPENMMFBM_SOURCES} )
+
+message( STATUS "${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES} ${OPENMMFBM_KERNEL_SOURCES}")
 
 # GPU bits
 # eventually we'll need to move the GPU code into a separate directory
@@ -85,20 +87,20 @@ if( BUILD_GPU )
     	link_directories("${MAGMA_DIR}/lib/" )
 	include_directories("${MAGMA_DIR}/include")
         find_library( MAGMA_LIB "magma" HINT "${MAGMA_DIR}/lib/")
-    endif()	
-    
+    endif()
+
     set( CULA_DIR "$ENV{CULA_HOME}" CACHE PATH "CULA Install Directory" )
     if( CULA_DIR )
     	#link_directories("${CULA_DIR}/lib64/" )
 	include_directories("${CULA_DIR}/include")
-    endif()	
+    endif()
 
     file( GLOB OPENMMFBM_CUDA_HEADERS include/OpenMMFBM/*.h )
     source_group( "include\\OpenMMFBM" FILES ${OPENMMFBM_CUDA_HEADERS})
 
     #file( GLOB OPENMMFBM_CUDA_KERNELS src/OpenMMFBM/kernels/*.cu )
     #source_group( "Kernels\\OpenMMFBM" FILES ${OPENMMFBM_CUDA_KERNELS} )
-    
+
     file( GLOB OPENMMFBM_CUDA_SOURCES src/OpenMMFBM/*.cu )
     source_group( "src\\OpenMMFBM" FILES ${OPENMMFBM_CUDA_SOURCES} )
 
@@ -114,9 +116,9 @@ if( BUILD_GPU )
     #target_link_libraries( OpenMMFBM OpenMMFBMRef )
     #install( TARGETS OpenMMFBMCuda LIBRARY DESTINATION "lib" )
 else()
-    add_library( OpenMMFBMCuda SHARED ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
+    add_library( OpenMMFBMCuda SHARED ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES} ${OPENMMFBM_KERNEL_SOURCES})
 endif()
-    
+
 target_link_libraries( OpenMMFBMCuda ${OPENMM_LIB} ${OPENMM_CUDA_LIB} ${MAGMA_LIB} )
 
 
