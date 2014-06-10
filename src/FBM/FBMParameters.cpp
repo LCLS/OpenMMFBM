@@ -1,4 +1,5 @@
-#include "OpenMMFBM/FBMParameters.h"
+#include "FBM/FBMParameters.h"
+
 namespace OpenMMFBM {
 	FBMParameters::FBMParameters() {
 		blockDelta = 1e-4; //NM

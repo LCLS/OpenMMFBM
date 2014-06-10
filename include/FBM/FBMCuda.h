@@ -15,17 +15,14 @@
 
 #include "OpenMM.h"
 
-#include "OpenMMFBM/FBMAbstract.h"
+#include "FBM/FBMAbstract.h"
 
 #include "openmm/Platform.h"
 #include "CudaPlatform.h"
-//#include "Diagonalize.h"
-//#include "BlockDiagonalize.h"
 
 class FBMCuda : public FBMAbstract, public OpenMM::CudaPlatform {
 	public:
 		FBMCuda( OpenMM::Context &c, OpenMM::Context &bC, OpenMMFBM::FBMParameters &p );
-		//FBMCuda(FBMParameters &p);
 
 		virtual void getBlockHessian( std::vector<std::vector<double > > &blockHessianVectors ) const;
 
@@ -39,8 +36,6 @@ class FBMCuda : public FBMAbstract, public OpenMM::CudaPlatform {
 
 
 	private:
-		//CudaContext& context;
-		//CudaContext& blockContext;
 		CudaPlatform::PlatformData *data;
 		CudaPlatform::PlatformData *blockData;
 		float *blockHessian; // TMC I chose to make this a linear array because of how Kevin's kernel was set up

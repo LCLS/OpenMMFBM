@@ -1,4 +1,4 @@
-#include "OpenMMFBM/Math.h"
+#include "FBM/Math.h"
 
 #ifdef INTEL_MKL
 #include <mkl_blas.h>

@@ -16,18 +16,7 @@
 
 #include "OpenMM.h"
 
-#include "OpenMMFBM/FBMParameters.h"
-//#include "OpenMMFBM/BlockDiagonalize.h"
-//#include "OpenMMFBM/Diagonalize.h"
-
-/*
- * Until we sort out the exact design...
-
-#include "OpenMMFBM/CulaDiagonalize.h"
-#include "OpenMMFBM/MKLDiagonalize.h"
-#include "OpenMMFBM/MKLBlockDiagonalize.h"
-#include "OpenMMFBM/QRBlockDiagonalize.h"
-*/
+#include "FBM/FBMParameters.h"
 
 class FBMAbstract {
 	public:
@@ -36,33 +25,6 @@ class FBMAbstract {
 		// functions below with CPU 'glue code' in between.
 		virtual void run( std::vector<double> &eigenvalues, std::vector<std::vector<OpenMM::Vec3> > &modes, std::string blockdiag, std::string diag ) {
 			std::cout << "I'm running!" << std::endl;
-
-			/*
-			 * Until we sort out the exact design ...
-
-			       BlockDiagonalize* bd;
-			   Diagonalize* d;
-
-			#ifdef INTEL_MKL
-			   if (blockdiag == "CPU")
-			      bd = new MKLBlockDiagonlize();
-			#endif
-
-			#ifdef HAVE_QR
-			   if (blockdiag == "GPU")
-			      bd = new QRBlockDiagonlize();
-			#endif
-
-			#ifdef INTEL_MKL
-			   if (diag == "CPU")
-			      d = new MKLDiagonalize();
-			#endif
-
-			#ifdef CULA
-			   if (blockdiag == "GPU")
-			      d = new CulaDiagonalize();
-			#endif
-			*/
 
 			initialize();
 			formBlocks();  // blockHessian
@@ -73,15 +35,8 @@ class FBMAbstract {
 			computeS();   // S
 			diagonalizeS();  // Q
 			computeModes( eigenvalues, modes ); // U, or modes
-
-
-			/*
-			delete bd;
-			delete d;
-			*/
 		}
 
-		// void getBlockHessian()
 		// Populates the given vector with the block hessian
 		virtual void getBlockHessian( std::vector<std::vector<double > > &blockHessianVectors ) const = 0;
 
@@ -160,7 +115,6 @@ class FBMAbstract {
 		//    which is allocated by the user
 		virtual void computeModes( std::vector<double> &eigenvalues,
 								   std::vector<std::vector<OpenMM::Vec3> > &modes ) = 0;
-
 };
 
 #endif

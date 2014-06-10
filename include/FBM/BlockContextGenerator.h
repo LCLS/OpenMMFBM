@@ -5,7 +5,7 @@
 
 #include "OpenMM.h"
 
-#include "OpenMMFBM/FBMParameters.h"
+#include "FBM/FBMParameters.h"
 
 class BlockContextGenerator {
 

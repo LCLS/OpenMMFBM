@@ -17,11 +17,12 @@ using namespace std;
 #include "OpenMM.h"
 
 
-#include "OpenMMFBM/FBMAbstract.h"
-#include "OpenMMFBM/FBMParameters.h"
+#include "FBM/FBMAbstract.h"
+#include "FBM/FBMParameters.h"
 
 typedef TNT::Array1D<double> EigenvalueArray;
 typedef std::pair<double, int> EigenvalueColumn;
+
 namespace OpenMMFBM {
 	class FBMReference : public FBMAbstract {
 		public:
@@ -181,9 +182,7 @@ namespace OpenMMFBM {
 
 			TNT::Array1D<double> reducedSpaceEigenvalues;
 			TNT::Array2D<double> reducedSpaceEigenvectors;
-
-
-
 	};
 }
+
 #endif

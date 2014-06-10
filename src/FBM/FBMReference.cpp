@@ -11,8 +11,8 @@
 #include <sstream>
 
 #include "OpenMM.h"
-#include "OpenMMFBM/Math.h"
-#include "OpenMMFBM/FBMReference.h"
+#include "FBM/Math.h"
+#include "FBM/FBMReference.h"
 
 #include "tnt_array2d_utils.h"
 

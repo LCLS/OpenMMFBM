@@ -6,33 +6,29 @@
 
 
 #ifdef OPENMMFBM_CUDA
-#include "OpenMMFBM/FBMCuda.h"
+#include "FBM/FBMCuda.h"
 #endif
 
-#include "OpenMMFBM/FBMReference.h"
-#include "OpenMMFBM/FBMAbstract.h"
-#include "OpenMMFBM/FBM.h"
-
-
-using namespace std;
+#include "FBM/FBMReference.h"
+#include "FBM/FBMAbstract.h"
+#include "FBM/FBM.h"
 
 FBM::FBM( OpenMMFBM::FBMParameters &params ) : myParameters( params ) {
 
 }
 
 void FBM::run( OpenMM::Context &context, OpenMM::Context &blockContext, std::vector<std::vector<OpenMM::Vec3> > &modes, std::vector<double> &eigenvalues, std::string fbmPlatform ) {
-
-	cout << "In FBM::run" << endl;
+	std::cout << "In FBM::run" << std::endl;
 
 	implementation = implementationFactory( context, blockContext, fbmPlatform );
 
-	cout << "have my implementation!" << endl;
+	std::cout << "have my implementation!" << std::endl;
 
 	implementation->run( eigenvalues, modes, "", "" );
 }
 
 FBMAbstract *FBM::implementationFactory( OpenMM::Context &context, OpenMM::Context &blockContext, std::string fbmPlatform ) {
-	cout << "In our \"factory\"..." << endl;
+	std::cout << "In our \"factory\"..." << std::endl;
 
 	FBMAbstract *fbmImplementation = NULL;
 
@@ -46,6 +42,6 @@ FBMAbstract *FBM::implementationFactory( OpenMM::Context &context, OpenMM::Conte
 		fbmImplementation = new OpenMMFBM::FBMReference( context, blockContext, myParameters );
 	}
 
-	cout << "Have implementation!" << endl;
+	std::cout << "Have implementation!" << std::endl;
 	return fbmImplementation;
 }

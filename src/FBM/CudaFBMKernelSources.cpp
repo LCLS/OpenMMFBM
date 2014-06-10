@@ -1,4 +1,4 @@
-#include "OpenMMFBM/CudaFBMKernelSources.h"
+#include "FBM/CudaFBMKernelSources.h"
 
 using namespace OpenMM;
 //using namespace OpenMMFBM;

@@ -17,7 +17,7 @@
 
 #include "OpenMM.h"
 
-#include "OpenMMFBM/FBMAbstract.h"
+#include "FBM/FBMAbstract.h"
 
 class FBM {
 	public:

@@ -4,7 +4,7 @@
 
 #include "OpenMM.h"
 
-#include "OpenMMFBM/BlockContextGenerator.h"
+#include "FBM/BlockContextGenerator.h"
 
 using namespace std;
 using namespace OpenMM;
@@ -261,7 +261,6 @@ Context *BlockContextGenerator::generateBlockContext( Context &context ) {
 	Context *blockContext;
 
 	switch( params.blockPlatform ) {
-
 		case OpenMMFBM::Preference::Reference:
 			blockContext = new Context( *blockSystem, *integ, Platform::getPlatformByName( "Reference" ) );
 			break;
@@ -276,5 +275,4 @@ Context *BlockContextGenerator::generateBlockContext( Context &context ) {
 	blockContext->setPositions( positions );
 
 	return blockContext;
-
 }
