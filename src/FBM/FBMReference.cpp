@@ -105,7 +105,7 @@ namespace OpenMMFBM {
 		determineBlockSizes( params.res_per_block, params.residue_sizes );
 		initialPositions = context.getState( State::Positions | State::Forces ).getPositions();
 		particleCount = initialPositions.size();
-		System &system = context.getSystem();
+		const System &system = context.getSystem();
 		mParticleMass.clear();
 		for( unsigned int i = 0; i < particleCount; i++ ) {
 			mParticleMass.push_back( system.getParticleMass( i ) );

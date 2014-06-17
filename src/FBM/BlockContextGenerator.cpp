@@ -9,6 +9,9 @@
 using namespace std;
 using namespace OpenMM;
 
+namespace OpenMM {
+	namespace FBM {
+
 unsigned int BlockContextGenerator::blockNumber( const vector<int> &blockSizes, const int p ) const {
 	unsigned int block = 0;
 	while( block != blockSizes.size() && blockSizes[block] <= p ) {
@@ -275,4 +278,6 @@ Context *BlockContextGenerator::generateBlockContext( Context &context ) {
 	blockContext->setPositions( positions );
 
 	return blockContext;
+}
+}
 }

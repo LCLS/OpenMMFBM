@@ -1,9 +1,9 @@
-#include "OpenMMFBM/FBMCuda.h"
-#include "kernels/Kernels.cu"
-#include "kernels/qr.cu"
-//#include <cuda.h>
-#include "OpenMMFBM/CudaFBMKernelSources.h"
-#include "magma_d.h"
+#include "FBM/FBMCuda.h"
+//#include "kernels/Kernels.cu"
+//#include "kernels/qr.cu"
+#include <cuda_runtime.h>
+#include "FBM/CudaFBMKernelSources.h"
+//#include "magma_d.h"
 //#include "cula_lapack_device.h"
 //#include "cula.h"
 #include "CudaArray.h"
@@ -110,7 +110,7 @@ FBMCuda::FBMCuda( Context &c, Context &bC, OpenMMFBM::FBMParameters &p ) : FBMAb
 	blockData = reinterpret_cast<CudaPlatform::PlatformData *>( getContextImpl( bC ).getPlatformData() );
 
 	// Set up the masses...
-	System &system = c.getSystem();
+	const System &system = c.getSystem();
 	int _N = context.getState( State::Positions ).getPositions().size() / 3;
 	float *tmpmass = new float[_N];
 	for( int i = 0; i < _N; i++ ) {
@@ -627,7 +627,7 @@ void FBMCuda::diagonalizeS() {
 	int liwork = 3 + 5 * m;
 	int *iwork = ( int * )malloc( liwork * sizeof( int ) );
 	int info;
-	magma_dsyevd( MagmaVec, MagmaUpper, m, ( double * ) & ( Q[0] ), m, ( double * )&dS, work,  lwork, iwork, liwork, &info );
+	//magma_dsyevd( MagmaVec, MagmaUpper, m, ( double * ) & ( Q[0] ), m, ( double * )&dS, work,  lwork, iwork, liwork, &info );
 }
 
 void FBMCuda::computeModes( vector<double> &eigenvalues, vector<vector<Vec3> > &modes ) {
