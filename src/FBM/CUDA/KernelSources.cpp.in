@@ -1,0 +1,7 @@
+#include "FBM/CUDA/KernelSources.h"
+
+namespace OpenMM{
+    namespace FBM{
+        @CUDA_FILE_DEFINITIONS@
+    }
+}

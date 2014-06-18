@@ -63,8 +63,6 @@ source_group( "include\\FBM" FILES ${OPENMMFBM_HEADERS} )
 file( GLOB OPENMMFBM_SOURCES src/OpenMMFBM/*.cpp )
 source_group( "src\\FBM" FILES ${OPENMMFBM_SOURCES} )
 
-message( STATUS "${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES} ${OPENMMFBM_KERNEL_SOURCES}")
-
 # GPU bits
 # eventually we'll need to move the GPU code into a separate directory
 # to prevent adding it with the glob below or add a define around it
@@ -108,6 +106,37 @@ if( BUILD_GPU )
 	if( ${CMAKE_CXX_COMPILER} MATCHES "clang.*$" )
 		list( APPEND CUDA_NVCC_FLAGS "-ccbin=clang" )
 	endif()
+
+	# Encode Cuda Files
+	FILE(GLOB CUDA_KERNELS src/FBM/CUDA/kernels/*_kernel.cu)
+	message(STATUS "${CUDA_KERNELS}")
+
+	SET(CUDA_FILE_DECLARATIONS)
+	SET(CUDA_FILE_DEFINITIONS)
+	FOREACH(file ${CUDA_KERNELS})
+	    # Load the file contents
+	    FILE(STRINGS ${file} file_content NEWLINE_CONSUME)
+		message( STATUS ${file_content} )
+
+		# Clean Content
+	    STRING(REGEX REPLACE "\\\\([^;])" "\\\\\\\\\\1" file_content "${file_content}")
+	    STRING(REPLACE "\"" "\\\"" file_content "${file_content}")
+		STRING(REPLACE "\n" "" file_content "${file_content}")
+
+	    # Determine a name for the variable that will contain this file's contents
+	    FILE(RELATIVE_PATH filename ${CMAKE_SOURCE_DIR}/src/FBM/CUDA/kernels ${file})
+	    STRING(LENGTH ${filename} filename_length)
+	    MATH(EXPR filename_length ${filename_length}-10)
+	    STRING(SUBSTRING ${filename} 0 ${filename_length} variable_name)
+
+	    # Record the variable declaration and definition.
+	    SET(CUDA_FILE_DECLARATIONS ${CUDA_FILE_DECLARATIONS}static\ const\ std::string\ ${variable_name};\n)
+		SET(CUDA_FILE_DEFINITIONS ${CUDA_FILE_DEFINITIONS}const\ string\ KernelSources::${variable_name}\ =\ \"${file_content}\"\;\n)
+	ENDFOREACH(file)
+	CONFIGURE_FILE(src/FBM/CUDA/KernelSources.cpp.in ${PROJECT_BINARY_DIR}/src/FBM/CUDA/KernelSources.cpp)
+	CONFIGURE_FILE(include/FBM/CUDA/KernelSources.h.in ${PROJECT_BINARY_DIR}/include/FBM/CUDA/KernelSources.h)
+
+	include_directories("${PROJECT_BINARY_DIR}")
 
     CUDA_ADD_LIBRARY( OpenMMFBMCuda SHARED ${OPENMMFBM_CUDA_HEADERS} ${OPENMMFBM_CUDA_SOURCES} ${OPENMMFBM_HEADERS} ${OPENMMFBM_SOURCES})
     set_target_properties( OpenMMFBMCuda PROPERTIES COMPILE_FLAGS "-DOPENMMFBM_CUDA")
