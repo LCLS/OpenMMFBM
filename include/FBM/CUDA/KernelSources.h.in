@@ -5,11 +5,11 @@
 
 namespace OpenMM {
     namespace FBM {
-    class KernelSources {
-        public:
-        @CUDA_FILE_DECLARATIONS@
-    };
-
+        class KernelSources {
+            public:
+                @CUDA_FILE_DECLARATIONS@
+        };
+    }
 }
 
 #endif /*OPENMM_FBM_CUDA_KERNELSOURCES_H_*/

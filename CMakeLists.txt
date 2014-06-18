@@ -109,14 +109,12 @@ if( BUILD_GPU )
 
 	# Encode Cuda Files
 	FILE(GLOB CUDA_KERNELS src/FBM/CUDA/kernels/*_kernel.cu)
-	message(STATUS "${CUDA_KERNELS}")
 
 	SET(CUDA_FILE_DECLARATIONS)
 	SET(CUDA_FILE_DEFINITIONS)
 	FOREACH(file ${CUDA_KERNELS})
 	    # Load the file contents
 	    FILE(STRINGS ${file} file_content NEWLINE_CONSUME)
-		message( STATUS ${file_content} )
 
 		# Clean Content
 	    STRING(REGEX REPLACE "\\\\([^;])" "\\\\\\\\\\1" file_content "${file_content}")
@@ -130,9 +128,13 @@ if( BUILD_GPU )
 	    STRING(SUBSTRING ${filename} 0 ${filename_length} variable_name)
 
 	    # Record the variable declaration and definition.
-	    SET(CUDA_FILE_DECLARATIONS ${CUDA_FILE_DECLARATIONS}static\ const\ std::string\ ${variable_name};\n)
-		SET(CUDA_FILE_DEFINITIONS ${CUDA_FILE_DEFINITIONS}const\ string\ KernelSources::${variable_name}\ =\ \"${file_content}\"\;\n)
+	    SET(CUDA_FILE_DECLARATIONS ${CUDA_FILE_DECLARATIONS}static\ const\ std::string\ ${variable_name};\n\t\t)
+		SET(CUDA_FILE_DEFINITIONS ${CUDA_FILE_DEFINITIONS}const\ string\ KernelSources::${variable_name}\ =\ \"${file_content}\"\;\n\n\t)
 	ENDFOREACH(file)
+
+	STRING(REGEX REPLACE "(\r?\n)+\t+$" "" CUDA_FILE_DEFINITIONS "${CUDA_FILE_DEFINITIONS}")
+	STRING(REGEX REPLACE "(\r?\n)+\t+$" "" CUDA_FILE_DECLARATIONS "${CUDA_FILE_DECLARATIONS}")
+
 	CONFIGURE_FILE(src/FBM/CUDA/KernelSources.cpp.in ${PROJECT_BINARY_DIR}/src/FBM/CUDA/KernelSources.cpp)
 	CONFIGURE_FILE(include/FBM/CUDA/KernelSources.h.in ${PROJECT_BINARY_DIR}/include/FBM/CUDA/KernelSources.h)
 
