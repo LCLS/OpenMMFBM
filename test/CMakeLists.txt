@@ -26,28 +26,14 @@ option( BUILD_FBM "Build FBM tests" Off )
 if( BUILD_FBM )
     include_directories("include")
     include_directories("../include")
-    include_directories("../src")
 
-    file( GLOB OPENMMFBM_TEST_HEADERS include/OpenMMFBM/*.h )
-    source_group( "include\\OpenMMFBM" FILES ${OPENMMFBM_TEST_HEADERS} )
+	set( TEST_HEADERS ${TEST_HEADERS} "include/CUDATest.h" )
+	set( TEST_SOURCES ${TEST_SOURCES} "src/CUDATest.cpp")
 
-    file( GLOB OPENMMFBM_TEST_SOURCES src/OpenMMFBM/*.cpp )
-    source_group( "src\\OpenMMFBM" FILES ${OPENMMFBM_TEST_SOURCES} )
-
-    file( GLOB OPENMMFBM_TEST_CUDA_SOURCES src/OpenMMFBM/*.cu )
-    source_group( "src\\OpenMMFBM" FILES ${OPENMMFBM_TEST_CUDA_SOURCES} )
-
-    find_package(CUDA REQUIRED)
-
-    #file(GLOB OPENMMFBM_CUDA_KERNELS ../src/OpenMMFBM/kernels/*.cu)
-    #source_group("Kernels\\OpenMMFBM" FILES ${OPENMMFBM_CUDA_KERNELS})
-
-    # Intel compiler patch
-    if( ${CMAKE_CXX_COMPILER} MATCHES "icpc.*$" OR ${CMAKE_CXX_COMPILER} MATCHES "icc.*$" )
-        list( APPEND CUDA_NVCC_FLAGS "-ccbin=icc" )
-    endif()
-
-    CUDA_ADD_EXECUTABLE(OpenMMFBMCudaTests ${OPENMMFBM_TEST_HEADERS} ${OPENMMFBM_TEST_SOURCES} ${OPENMMFBM_TEST_CUDA_SOURCES} ${OPENMMFBM_CUDA_KERNELS})
+	FILE(GLOB CUDA_KERNELS ../src/FBM/CUDA/kernels/*.cu)
+	FOREACH( file ${CUDA_KERNELS} )
+		set( TEST_SOURCES ${TEST_SOURCES} ${file} )
+	ENDFOREACH( file )
 endif( BUILD_FBM )
 
 find_library( CPPUNIT_LIB "cppunit" hint "${CPPUNIT_DIR}/lib" )
