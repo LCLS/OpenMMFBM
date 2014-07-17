@@ -278,7 +278,7 @@ __global__ void block_QR( const int n_mat, float *mat, const int *idxs, const in
 		hessian_qrf( sizes[blockIdx.x], mat + idxs[blockIdx.x], t_width );
 	}
 }
-
+#include <stdio.h>
 extern "C" void BlockQR_HOST( const int n_mat, float *matrix, const size_t matrix_size, const int *index, const size_t index_size, const int *sizes, const size_t sizes_size ) {
 	float *matrix_d;
 	cudaMalloc( ( void ** )&matrix_d, sizeof( float )*matrix_size );

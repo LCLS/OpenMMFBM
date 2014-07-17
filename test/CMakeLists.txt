@@ -16,9 +16,11 @@ endif( CPPUNIT_DIR )
 option( BUILD_QR "Build QR code tests" Off )
 if( BUILD_QR )
     include_directories("../src/")
+    include_directories("$ENV{CUDA_HOME}/samples/common/inc/" )
 
     set( TEST_HEADERS "include/QRTest.h" )
-    set( TEST_SOURCES "src/QRTest.cpp" "../src/OpenMMFBM/kernels/qr.cu" )
+    #set( TEST_SOURCES "src/QRTest.cpp" "../src/OpenMMFBM/kernels/qr.cu" )
+    set( TEST_SOURCES "src/QRTest.cpp" "../src/FBM/CUDA/kernels/qr.cu" )
 endif( BUILD_QR )
 
 # OpenMM FBM Tests
@@ -26,7 +28,6 @@ option( BUILD_FBM "Build FBM tests" Off )
 if( BUILD_FBM )
     include_directories("include")
     include_directories("../include")
-
 	set( TEST_HEADERS ${TEST_HEADERS} "include/CUDATest.h" )
 	set( TEST_SOURCES ${TEST_SOURCES} "src/CUDATest.cpp")
 
