@@ -1,6 +1,7 @@
 project( OpenMMFBM_Tests )
 cmake_minimum_required( VERSION 2.6 )
 
+
 find_package( CUDA REQUIRED )
 
 include_directories("include")

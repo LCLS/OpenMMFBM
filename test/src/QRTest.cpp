@@ -1,6 +1,7 @@
 #include "QRTest.h"
-
+#include <math.h>
 #include <helper_cuda.h>
+
 
 #include <cuda_runtime.h>
 #include <cppunit/extensions/HelperMacros.h>
@@ -10,7 +11,7 @@
 CPPUNIT_TEST_SUITE_REGISTRATION(FBM::QR);
 
 extern "C" void QRStep822( float *matrix, const size_t matrix_size );
-extern "C" void BlockQR_HOST( const int n_mat, float* matrix, const size_t matrix_size, const int* index, const size_t index_size, const int* sizes, const size_t sizes_size );
+extern "C" void BlockQR_HOST( const int n_mat, float* matrix, const size_t matrix_size, const int* index, const size_t index_size, const int* sizes, const size_t sizes_size, float* eigenvalues);
 
 namespace FBM {
 	void QR::QRStep() {
@@ -31,12 +32,12 @@ namespace FBM {
 
         int index[1] = { 0 };
         int widths[1] = { 4 };
-
-        BlockQR_HOST(1, matrix, 16, index, 1, widths, 1);
+        float eigenvalue[4] =  {0,0,0,0};
+	BlockQR_HOST(1, matrix, 16, index, 1, widths, 1, eigenvalue);
 		//QRStep822( matrix, 16 );
 
 		for( size_t i = 0; i < 16; i++ ) {
-			std::cout << matrix[i] << " " << expected_matrix[i] << std::endl;
+			//std::cout << matrix[i] << " " << expected_matrix[i] << std::endl;
 			//CPPUNIT_ASSERT_DOUBLES_EQUAL( matrix[i], expected_matrix[i], 1e-5 );
 		}
 	}
@@ -65,11 +66,15 @@ namespace FBM {
 
         int index[1] = { 0 };
         int widths[1] = { 4 };
-
-        BlockQR_HOST(1, matrix, 16, index, 1, widths, 1);
-
+	float eigenvalue[4] =  {0,0,0,0};
+        BlockQR_HOST(1, matrix, 16, index, 1, widths, 1, eigenvalue);
+		//check eigenvalues
+		for( size_t i = 0; i < 4; i++ ) {
+                        CPPUNIT_ASSERT_DOUBLES_EQUAL(fabs(eigenvalue[i]), fabs(expected_values[i+i*4]), 1e-4 );
+                }		
+		//check eigenvectors
 		for( size_t i = 0; i < 16; i++ ) {
-			CPPUNIT_ASSERT_DOUBLES_EQUAL( matrix[i], expected_values[i], 1e-5 );
+			CPPUNIT_ASSERT_DOUBLES_EQUAL(fabs(matrix[i]), fabs(expected_vectors[i]), 1e-4 );
 		}
 	}
 
@@ -112,8 +117,8 @@ namespace FBM {
 
 		int index[2] = { 0, 16 };
 		int widths[2] = { 4, 4 };
-
-		BlockQR_HOST(2, matrix, 32, index, 2, widths, 2);
+		float eigenvalue[8] = {0,0,0,0,0,0,0,0};
+		BlockQR_HOST(2, matrix, 32, index, 2, widths, 2, eigenvalue);
 
 		for( size_t i = 0; i < 32; i++ ) {
 			CPPUNIT_ASSERT_DOUBLES_EQUAL( matrix[i], expected_values[i], 1e-5 );

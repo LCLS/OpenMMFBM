@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+
 /*
 __device__ void run8_2_2( float *matA, const int length, int p, int q ) {
 	q = q - 1;
@@ -288,12 +289,17 @@ __global__ void block_QR( const int n_mat, float *mat, const int *idxs, const in
 //(vector workspaces) size n: vector, vector1
 //(matrix workspaces) size n*n: prevm, Newm, Q, NewQ, R, z, z1
 //output: m
-__global__ void block_QR(float* z, float* z1, float* vector, float* vector1, float* Q, float* NewQ, float* R, float* PrevM, float* NewM, int* converged, int n)
+__global__ void block_QR(float* z, float* z1, float* vector, float* vector1, float* Q, float* NewQ, float* R, float* PrevM, float* NewM, int* converged, float* eigenvector, int n)
 {
 *converged = 0;
 int iteration = 0;
 if(threadIdx.x<n*n){
 	int i;
+	for(i=threadIdx.x;i<n*n;i=i+blockDim.x){
+		//set eigenvector to the identity matrix.
+		if(i/n==i%n)eigenvector[i]=1;
+		else eigenvector[i]=0;
+	}
 	for(i=threadIdx.x;i<n*n;i=i+blockDim.x){
 		z1[i]=z[i];
 		Q[i]=z[i];
@@ -460,12 +466,24 @@ do{
 			z[i%n*n+i/n] = Q[i];
 		}
 		__syncthreads();
+	//STEP 14.5: Multiply matrices eigenvector and TransposeOfQ and store in eigenvector(use NewM as a temporary matrix)
+		for(i=threadIdx.x;i<n*n;i=i+blockDim.x){
+			NewM[i]=0;
+			for(j=0;j<n;j++){
+				NewM[i]+= eigenvector[i/n*n+j] * z[j*n+i%n];
+			}
+		}
+		__syncthreads();
+		for(i=threadIdx.x;i<n*n;i=i+blockDim.x){
+			eigenvector[i]=NewM[i];
+		}
+		__syncthreads();
 	//STEP 15: Multiply matrices R and TransposeOfQ and store in NewM matrix
 		for(i=threadIdx.x;i<n*n;i=i+blockDim.x){
 			NewM[i]=0;
 			for(j=0;j<n;j++)
 			{
-			NewM[i]+= R[i/n*n+j] * z[j*n+i%n];
+				NewM[i]+= R[i/n*n+j] * z[j*n+i%n];
 			}
 		}
 	//STEP 16: Check for Convergence of New Matrix (Newm)
@@ -474,7 +492,7 @@ do{
 		//threadIdx.x%n = column
 		//threadIdx.x/n = row (integer division)
 		for(i=threadIdx.x;i<n*n;i=i+blockDim.x){	
-			if(i/n==i%n&&(PrevM[i/n*n+i%n]/NewM[i/n*n+i%n]>1.01||PrevM[i/n*n+i%n]/NewM[i/n*n+i%n]<0.99)){
+			if(i/n==i%n&&(PrevM[i/n*n+i%n]/NewM[i/n*n+i%n]>1.0000001||PrevM[i/n*n+i%n]/NewM[i/n*n+i%n]<0.9999999)){
 				*converged = 0;
 			}
 		}
@@ -490,11 +508,32 @@ do{
 		}
 		__syncthreads();
 }while(*converged==0&&iteration<200);
+//Sort Eigenvalues low to high and swap eigenvectors to match eigenvalues
+	//Simple Bubble Sort
+		int i1,i2,i3;
+		for(i1=0;i1<n-1;i1++){
+			for(i2=i1+1;i2<n;i2++){
+				if(NewM[i1+i1*n]>NewM[i2+i2*n]){
+					float tmp = NewM[i1+i1*n];
+					NewM[i1+i1*n] = NewM[i2+i2*n];
+					NewM[i2+i2*n] = tmp;
+					for(i3 = 0;i3<n;i3++){
+						float tmp = eigenvector[i3*n+i1%n];
+						eigenvector[i3*n+i1%n] = eigenvector[i3*n+i2%n];
+						eigenvector[i3*n+i2%n] = tmp;
+					}
+				}
+			}
+		}
+}
+//put sorted eigenvalues into vector for copying purposes
+if(threadIdx.x<n){
+	vector[threadIdx.x]=NewM[threadIdx.x+threadIdx.x*n];
 }
 }
 
-//Number of matrices, matrix data, size of matrix array, index data, size of index array, widths data, size of widths array
-extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix_size, const int *index, const size_t index_size, const int *sizes, const size_t sizes_size ) {
+//Number of matrices, matrix data, size of matrix array, index data, size of index array, widths data, size of widths array, empty vector for eigenvalues
+extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix_size, const int *index, const size_t index_size, const int *sizes, const size_t sizes_size, float *eigenvalues ) {
 	/*
 	float *matrix_d;
 	cudaMalloc( ( void ** )&matrix_d, sizeof( float )*matrix_size );
@@ -517,6 +556,7 @@ extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix
 		float* d_vector1 = NULL;
 		float* d_z = NULL;
 		float* d_z1 = NULL;
+		float* d_eigenvector = NULL;
 		cudaMalloc((void **)&d_converged, sizeof(int));
 		cudaMalloc((void **)&d_vector, sizeof(float) * sizes[0]);                
 		cudaMalloc((void **)&d_vector1, sizeof(float) * sizes[0]);
@@ -527,6 +567,7 @@ extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix
 		cudaMalloc((void **)&d_R, sizeof(float) * sizes[0] * sizes[0]);
 		cudaMalloc((void **)&d_z, sizeof(float) * sizes[0] * sizes[0]);
 		cudaMalloc((void **)&d_z1, sizeof(float) * sizes[0] * sizes[0]);
+		cudaMalloc((void **)&d_eigenvector, sizeof(float) * sizes[0] * sizes[0]);
 	//Get CUDA device properties
 		cudaDeviceProp props;
 		cudaGetDeviceProperties(&props, 0);
@@ -534,10 +575,10 @@ extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix
 	//copy input matrix data into z
 		cudaMemcpy(d_z, matrix, sizeof(float) * matrix_size, cudaMemcpyHostToDevice);
 	//(float* z, float* z1, float* vector, float* vector1, float* Q, float* NewQ, float* R, float* PrevM, float* NewM, int* converged, int n)
-		block_QR <<<n_mat, threads >>>(d_z,d_z1,d_vector,d_vector1,d_Q, d_NewQ, d_R, d_PrevM, d_NewM, d_converged, sizes[0]);
-		cudaMemcpy(matrix, d_NewM, sizeof(float) * matrix_size, cudaMemcpyDeviceToHost);
-	// Copy Data Back
-	printf( "%f\n", matrix[0] );
+		block_QR <<<n_mat, threads >>>(d_z,d_z1,d_vector,d_vector1,d_Q, d_NewQ, d_R, d_PrevM, d_NewM, d_converged, d_eigenvector, sizes[0]);
+	//copy back data
+		cudaMemcpy(eigenvalues, d_vector, sizeof(float) * sizes[0], cudaMemcpyDeviceToHost);
+		cudaMemcpy(matrix, d_eigenvector, sizeof(float) * matrix_size, cudaMemcpyDeviceToHost);
 	// Cleanup
 	cudaFree(d_converged);
 	cudaFree(d_PrevM);
