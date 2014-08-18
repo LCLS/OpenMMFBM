@@ -214,7 +214,7 @@ do{
 		//threadIdx.x%n = column
 		//threadIdx.x/n = row (integer division)
 		for(i=threadIdx.x;i<n*n;i=i+blockDim.x){	
-			if(i/n==i%n&&(PrevM[i/n*n+i%n+index]/NewM[i/n*n+i%n+index]>1.0000001||PrevM[i/n*n+i%n+index]/NewM[i/n*n+i%n+index]<0.9999999)){
+			if(i/n==i%n&&(PrevM[i/n*n+i%n+index]/NewM[i/n*n+i%n+index]>1||PrevM[i/n*n+i%n+index]/NewM[i/n*n+i%n+index]<1)){
 				converged[blockIdx.x] = 0;
 			}
 		}
@@ -234,7 +234,8 @@ do{
 if(threadIdx.x<n){
        vector[threadIdx.x+vectindex]=NewM[threadIdx.x+threadIdx.x*n+index];
 }
-//Sort Eigenvalues low to high and swap eigenvectors to match eigenvalues
+	if(threadIdx.x==0){
+	//Sort Eigenvalues low to high and swap eigenvectors to match eigenvalues
 	//Simple Bubble Sort
 		int i1,i2,i3;
 		for(i1=vectindex;i1<n-1+vectindex;i1++){
@@ -244,18 +245,22 @@ if(threadIdx.x<n){
 					vector[i1] = vector[i2];
 					vector[i2] = tmp;
 					for(i3 = 0;i3<n;i3++){
-						float tmp = eigenvector[i3*n+i1%n+index];
-						eigenvector[i3*n+i1%n+index] = eigenvector[i3*n+i2%n+index];
-						eigenvector[i3*n+i2%n+index] = tmp;
+						float tmp = eigenvector[i3*n+(i1-vectindex)%n+index];
+						eigenvector[i3*n+(i1-vectindex)%n+index] = eigenvector[i3*n+(i2-vectindex)%n+index];
+						eigenvector[i3*n+(i2-vectindex)%n+index] = tmp;
 					}
 				}
 			}
 		}
+	}
 }
 }
 
 //Number of matrices, matrix data, size of matrix array, matrix index data, eigenvalue index data , widths data, empty vector for eigenvalues
 extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix_size, const int *index, const int *eigenvaluesindex, const int *sizes, float *eigenvalues ) {
+	//Set up timing variables
+		struct timeval start, finish;
+        	struct timezone tz;
 	//Set variables for CUDA use
 		int* d_converged = NULL;
 		int* d_sizes = NULL;
@@ -300,7 +305,10 @@ extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix
 		cudaMemcpy(d_sizes, sizes, sizeof(int)*n_mat, cudaMemcpyHostToDevice);
 		cudaMemcpy(d_index, index, sizeof(int)*n_mat, cudaMemcpyHostToDevice);
 		cudaMemcpy(d_eigenvaluesindex, eigenvaluesindex, sizeof(int)*n_mat, cudaMemcpyHostToDevice);
-		block_QR <<<n_mat, threads >>>(d_z,d_z1,d_vector,d_vector1,d_Q, d_NewQ, d_R, d_PrevM, d_NewM, d_converged, d_eigenvector, d_sizes, d_index, d_eigenvaluesindex);
+	//Time and run kernel
+		gettimeofday(&start, &tz);
+		block_QR <<<n_mat, threads>>>(d_z,d_z1,d_vector,d_vector1,d_Q, d_NewQ, d_R, d_PrevM, d_NewM, d_converged, d_eigenvector, d_sizes, d_index, d_eigenvaluesindex);
+		gettimeofday(&finish, &tz);
 	//copy back data
 		cudaMemcpy(eigenvalues, d_vector, sizeof(float) * vector_size, cudaMemcpyDeviceToHost);
 		cudaMemcpy(matrix, d_eigenvector, sizeof(float) * matrix_size, cudaMemcpyDeviceToHost);
@@ -361,6 +369,9 @@ extern "C" void BlockQR_HOST(const int n_mat, float *matrix, const size_t matrix
 		for (i = 0; i < matrix_size; i++)
 			printf("%f ", newm[i]);
 	*/
+	//Print Time of run
+		double elapsed = ( finish.tv_sec - start.tv_sec ) * 1000.0 + ( finish.tv_usec - start.tv_usec ) / 1000.0;
+       		printf("Time to cluster: %lf ms\n", elapsed);
 	// Cleanup
 	cudaFree(d_eigenvector);
 	cudaFree(d_sizes);
